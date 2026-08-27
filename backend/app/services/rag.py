@@ -70,13 +70,13 @@ def draft_from_matches(matches: list[tuple[DocumentChunk, KnowledgeDocument, flo
         }
 
     reasoning_lines = [
-        f"- From \"{doc.title}\"{f' (p.{chunk.page_number})' if chunk.page_number else ''}: {chunk.content_text[:400]}"
-        for chunk, doc, _ in matches
+        f"{idx}. {chunk.content_text[:400]}"
+        for idx, (chunk, _, _) in enumerate(matches, start=1)
     ]
-    top_chunk, top_doc, _ = matches[0]
+    top_chunk, _, _ = matches[0]
     return {
         "technical_conclusion": (
-            f"Based on the approved knowledge base (primarily \"{top_doc.title}\"), the following applies: "
+            f"Based on the approved knowledge base (source 1), the following applies: "
             f"{top_chunk.content_text[:500]}"
         ),
         "technical_reasoning": "\n".join(reasoning_lines),

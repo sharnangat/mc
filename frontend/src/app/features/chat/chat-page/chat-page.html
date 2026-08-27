@@ -26,10 +26,7 @@
               <ul>
                 @for (s of turn.response.sources; track $index) {
                   <li>
-                    <strong>{{ s.document_title }}</strong>
-                    @if (s.page_number) {
-                      <span> (p.{{ s.page_number }})</span>
-                    }
+                    <strong>Source {{ $index + 1 }}</strong>
                     <div class="cited">{{ s.cited_text }}</div>
                   </li>
                 }
