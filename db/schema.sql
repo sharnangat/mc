@@ -22,14 +22,14 @@ $$ LANGUAGE plpgsql;
 -- Identity & access
 -- =========================================================================
 
-CREATE TABLE metag.roles (
+CREATE TABLE IF NOT EXISTS metag.roles (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code        text NOT NULL UNIQUE,              -- customer | expert | admin | superadmin
   name        text NOT NULL,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE metag.users (
+CREATE TABLE IF NOT EXISTS metag.users (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email               text NOT NULL UNIQUE,
   phone               text UNIQUE,
@@ -42,10 +42,10 @@ CREATE TABLE metag.users (
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON metag.users
+CREATE OR REPLACE TRIGGER trg_users_updated_at BEFORE UPDATE ON metag.users
   FOR EACH ROW EXECUTE FUNCTION metag.set_updated_at();
 
-CREATE TABLE metag.user_roles (
+CREATE TABLE IF NOT EXISTS metag.user_roles (
   user_id      uuid NOT NULL REFERENCES metag.users(id) ON DELETE CASCADE,
   role_id      uuid NOT NULL REFERENCES metag.roles(id) ON DELETE RESTRICT,
   assigned_at  timestamptz NOT NULL DEFAULT now(),
@@ -56,7 +56,7 @@ CREATE TABLE metag.user_roles (
 -- Consultation catalog
 -- =========================================================================
 
-CREATE TABLE metag.consultation_categories (
+CREATE TABLE IF NOT EXISTS metag.consultation_categories (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code        text NOT NULL UNIQUE,
   name        text NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE metag.consultation_categories (
   sort_order  int NOT NULL DEFAULT 0
 );
 
-CREATE TABLE metag.pricing_plans (
+CREATE TABLE IF NOT EXISTS metag.pricing_plans (
   id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code                      text NOT NULL UNIQUE,   -- basic | detailed | failure_analysis | expert_meeting
   name                      text NOT NULL,
@@ -77,21 +77,26 @@ CREATE TABLE metag.pricing_plans (
   updated_at                timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TRIGGER trg_pricing_plans_updated_at BEFORE UPDATE ON metag.pricing_plans
+CREATE OR REPLACE TRIGGER trg_pricing_plans_updated_at BEFORE UPDATE ON metag.pricing_plans
   FOR EACH ROW EXECUTE FUNCTION metag.set_updated_at();
 
 -- =========================================================================
 -- Knowledge base (source-controlled, admin-curated)
 -- =========================================================================
 
-CREATE TABLE metag.knowledge_categories (
+CREATE TABLE IF NOT EXISTS metag.knowledge_categories (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   parent_id   uuid REFERENCES metag.knowledge_categories(id) ON DELETE CASCADE,
   name        text NOT NULL,
   sort_order  int NOT NULL DEFAULT 0
 );
 
-CREATE TABLE metag.knowledge_documents (
+-- Prevents duplicate top-level categories (name uniqueness among children of the
+-- same parent is left to the admin panel to enforce, if ever needed).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_categories_top_level_name
+  ON metag.knowledge_categories (name) WHERE parent_id IS NULL;
+
+CREATE TABLE IF NOT EXISTS metag.knowledge_documents (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title               text NOT NULL,
   document_type       text NOT NULL CHECK (document_type IN (
@@ -119,15 +124,15 @@ CREATE TABLE metag.knowledge_documents (
   notes               text
 );
 
-CREATE INDEX idx_knowledge_documents_enabled ON metag.knowledge_documents(is_enabled_for_ai);
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_enabled ON metag.knowledge_documents(is_enabled_for_ai);
 
-CREATE TABLE metag.document_category_map (
+CREATE TABLE IF NOT EXISTS metag.document_category_map (
   document_id  uuid NOT NULL REFERENCES metag.knowledge_documents(id) ON DELETE CASCADE,
   category_id  uuid NOT NULL REFERENCES metag.knowledge_categories(id) ON DELETE CASCADE,
   PRIMARY KEY (document_id, category_id)
 );
 
-CREATE TABLE metag.document_chunks (
+CREATE TABLE IF NOT EXISTS metag.document_chunks (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id    uuid NOT NULL REFERENCES metag.knowledge_documents(id) ON DELETE CASCADE,
   chunk_index    int NOT NULL,
@@ -145,14 +150,14 @@ CREATE TABLE metag.document_chunks (
 -- little/no data it has severe recall problems (can miss exact matches under
 -- ORDER BY ... LIMIT) until the table is large and re-indexed. hnsw builds
 -- incrementally and stays accurate from the first row.
-CREATE INDEX idx_document_chunks_embedding ON metag.document_chunks
+CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON metag.document_chunks
   USING hnsw (embedding vector_cosine_ops);
 
 -- =========================================================================
 -- System configuration & prompt versioning
 -- =========================================================================
 
-CREATE TABLE metag.system_settings (
+CREATE TABLE IF NOT EXISTS metag.system_settings (
   key         text PRIMARY KEY,
   value       jsonb NOT NULL,
   description text,
@@ -160,7 +165,7 @@ CREATE TABLE metag.system_settings (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE metag.prompt_templates (
+CREATE TABLE IF NOT EXISTS metag.prompt_templates (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name           text NOT NULL,
   version        text NOT NULL,
@@ -174,9 +179,9 @@ CREATE TABLE metag.prompt_templates (
 -- Queries (consultations)
 -- =========================================================================
 
-CREATE SEQUENCE metag.query_code_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS metag.query_code_seq START 1;
 
-CREATE TABLE metag.queries (
+CREATE TABLE IF NOT EXISTS metag.queries (
   id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   query_code                text UNIQUE,        -- e.g. MET-2026-000123, assigned by trigger below
   customer_id               uuid NOT NULL REFERENCES metag.users(id),
@@ -193,10 +198,10 @@ CREATE TABLE metag.queries (
   updated_at                timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_queries_customer ON metag.queries(customer_id);
-CREATE INDEX idx_queries_status ON metag.queries(status);
+CREATE INDEX IF NOT EXISTS idx_queries_customer ON metag.queries(customer_id);
+CREATE INDEX IF NOT EXISTS idx_queries_status ON metag.queries(status);
 
-CREATE TRIGGER trg_queries_updated_at BEFORE UPDATE ON metag.queries
+CREATE OR REPLACE TRIGGER trg_queries_updated_at BEFORE UPDATE ON metag.queries
   FOR EACH ROW EXECUTE FUNCTION metag.set_updated_at();
 
 CREATE OR REPLACE FUNCTION metag.generate_query_code() RETURNS trigger AS $$
@@ -208,10 +213,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_queries_query_code BEFORE INSERT ON metag.queries
+CREATE OR REPLACE TRIGGER trg_queries_query_code BEFORE INSERT ON metag.queries
   FOR EACH ROW EXECUTE FUNCTION metag.generate_query_code();
 
-CREATE TABLE metag.query_attachments (
+CREATE TABLE IF NOT EXISTS metag.query_attachments (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   query_id         uuid NOT NULL REFERENCES metag.queries(id) ON DELETE CASCADE,
   attachment_type  text NOT NULL CHECK (attachment_type IN (
@@ -225,13 +230,13 @@ CREATE TABLE metag.query_attachments (
   uploaded_at      timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_query_attachments_query ON metag.query_attachments(query_id);
+CREATE INDEX IF NOT EXISTS idx_query_attachments_query ON metag.query_attachments(query_id);
 
 -- =========================================================================
 -- Payments
 -- =========================================================================
 
-CREATE TABLE metag.payments (
+CREATE TABLE IF NOT EXISTS metag.payments (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   query_id            uuid NOT NULL REFERENCES metag.queries(id),
   customer_id         uuid NOT NULL REFERENCES metag.users(id),
@@ -247,13 +252,13 @@ CREATE TABLE metag.payments (
   created_at          timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_payments_query ON metag.payments(query_id);
+CREATE INDEX IF NOT EXISTS idx_payments_query ON metag.payments(query_id);
 
 -- =========================================================================
 -- AI drafting, citations, expert review, final answer
 -- =========================================================================
 
-CREATE TABLE metag.ai_answers (
+CREATE TABLE IF NOT EXISTS metag.ai_answers (
   id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   query_id                  uuid NOT NULL REFERENCES metag.queries(id) ON DELETE CASCADE,
   prompt_template_id        uuid REFERENCES metag.prompt_templates(id),
@@ -268,9 +273,9 @@ CREATE TABLE metag.ai_answers (
   created_at                timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_ai_answers_query ON metag.ai_answers(query_id);
+CREATE INDEX IF NOT EXISTS idx_ai_answers_query ON metag.ai_answers(query_id);
 
-CREATE TABLE metag.ai_answer_sources (
+CREATE TABLE IF NOT EXISTS metag.ai_answer_sources (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   ai_answer_id        uuid NOT NULL REFERENCES metag.ai_answers(id) ON DELETE CASCADE,
   document_id         uuid NOT NULL REFERENCES metag.knowledge_documents(id),
@@ -285,9 +290,9 @@ CREATE TABLE metag.ai_answer_sources (
   created_at          timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_ai_answer_sources_answer ON metag.ai_answer_sources(ai_answer_id);
+CREATE INDEX IF NOT EXISTS idx_ai_answer_sources_answer ON metag.ai_answer_sources(ai_answer_id);
 
-CREATE TABLE metag.expert_reviews (
+CREATE TABLE IF NOT EXISTS metag.expert_reviews (
   id                            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   query_id                      uuid NOT NULL REFERENCES metag.queries(id) ON DELETE CASCADE,
   ai_answer_id                  uuid REFERENCES metag.ai_answers(id),
@@ -301,9 +306,9 @@ CREATE TABLE metag.expert_reviews (
   created_at                    timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_expert_reviews_query ON metag.expert_reviews(query_id);
+CREATE INDEX IF NOT EXISTS idx_expert_reviews_query ON metag.expert_reviews(query_id);
 
-CREATE TABLE metag.final_answers (
+CREATE TABLE IF NOT EXISTS metag.final_answers (
   id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   -- One active final answer per query; a re-issued answer supersedes it via a new expert_review, not a new row.
   query_id                  uuid NOT NULL UNIQUE REFERENCES metag.queries(id),
@@ -322,7 +327,7 @@ CREATE TABLE metag.final_answers (
 -- Notifications & audit trail
 -- =========================================================================
 
-CREATE TABLE metag.notifications (
+CREATE TABLE IF NOT EXISTS metag.notifications (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid NOT NULL REFERENCES metag.users(id),
   query_id    uuid REFERENCES metag.queries(id),
@@ -333,7 +338,7 @@ CREATE TABLE metag.notifications (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE metag.audit_logs (
+CREATE TABLE IF NOT EXISTS metag.audit_logs (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   entity_type text NOT NULL,
   entity_id   uuid,
@@ -346,4 +351,4 @@ CREATE TABLE metag.audit_logs (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_audit_logs_entity ON metag.audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON metag.audit_logs(entity_type, entity_id);

@@ -37,7 +37,7 @@ INSERT INTO metag.knowledge_categories (name, sort_order) VALUES
   ('Processes', 2),
   ('Testing', 3),
   ('Failure Analysis', 4)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) WHERE parent_id IS NULL DO NOTHING;
 
 INSERT INTO metag.system_settings (key, value, description) VALUES
   ('allow_external_knowledge', 'false', 'When false, the AI must answer only from retrieved, approved documents and must not fall back on general model knowledge.'),
