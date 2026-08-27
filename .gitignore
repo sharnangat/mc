@@ -3,9 +3,8 @@
 *.env
 !*.env.example
 
-# Ingested uploads (runtime data, not tracked)
-backend/uploads/*
-!backend/uploads/.gitkeep
+# Ingested uploads: PDFs are runtime duplicates of pdf/ (already tracked there via LFS)
+backend/uploads/**/*.pdf
 
 # Python
 __pycache__/
