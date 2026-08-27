@@ -3,8 +3,7 @@
 *.env
 !*.env.example
 
-# Reference document library and ingested uploads (large binaries, not tracked)
-/pdf/
+# Ingested uploads (runtime data, not tracked)
 backend/uploads/*
 !backend/uploads/.gitkeep
 
