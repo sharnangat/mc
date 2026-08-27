@@ -1,0 +1,21 @@
+# Environment / secrets
+.env
+*.env
+!*.env.example
+
+# Reference document library and ingested uploads (large binaries, not tracked)
+/pdf/
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node / Angular (frontend has its own .gitignore for dist, node_modules, etc.)
+
+# OS
+.DS_Store
+Thumbs.db

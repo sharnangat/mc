@@ -1,0 +1,59 @@
+<div class="card" style="max-width: 640px;">
+  <h2>New Metallurgical Consultation</h2>
+
+  <form (ngSubmit)="submit()">
+    <div class="field">
+      <label for="category">Consultation Category</label>
+      <select id="category" name="category" [(ngModel)]="categoryId" required>
+        @for (c of categories(); track c.id) {
+          <option [value]="c.id">{{ c.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="plan">Consultation Plan</label>
+      <select id="plan" name="plan" [(ngModel)]="planId" required>
+        @for (p of plans(); track p.id) {
+          <option [value]="p.id">{{ p.name }} - ₹{{ p.price_inr }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="priority">Priority</label>
+      <select id="priority" name="priority" [(ngModel)]="priority">
+        <option value="normal">Normal</option>
+        <option value="high">High</option>
+        <option value="urgent">Urgent</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="question">Your Question</label>
+      <textarea
+        id="question"
+        name="question"
+        rows="6"
+        [(ngModel)]="questionText"
+        required
+        placeholder="e.g. Why is the hardness of my 42CrMo4 component only 28 HRC after quenching and tempering at 600C?"
+      ></textarea>
+    </div>
+
+    @if (errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
+
+    <p style="font-size: 0.85rem; color: var(--color-muted);">
+      You'll be able to upload supporting documents (hardness reports, chemical composition, photographs, etc.)
+      and complete payment on the next screen.
+    </p>
+
+    <div class="btn-row">
+      <button type="submit" class="btn" [disabled]="submitting()">
+        {{ submitting() ? 'Submitting...' : 'Submit Query' }}
+      </button>
+    </div>
+  </form>
+</div>

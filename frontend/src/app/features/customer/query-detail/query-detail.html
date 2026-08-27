@@ -1,0 +1,111 @@
+@if (loading()) {
+  <p>Loading...</p>
+} @else if (query(); as q) {
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>{{ q.query_code }}</h2>
+      <span class="badge" [class]="'status-' + q.status">{{ q.status }}</span>
+    </div>
+    <p style="white-space: pre-wrap;">{{ q.question_text }}</p>
+    <p style="font-size: 0.8rem; color: var(--color-muted);">Submitted {{ q.created_at | date: 'medium' }}</p>
+  </div>
+
+  @if (q.status === 'pending_payment') {
+    <div class="card">
+      <h3>Supporting Documents (optional)</h3>
+      <p style="font-size: 0.85rem; color: var(--color-muted);">
+        Upload chemical composition, hardness/tensile results, heat-treatment cycle, photographs, drawings etc.
+      </p>
+
+      @if (q.attachments.length > 0) {
+        <ul>
+          @for (a of q.attachments; track a.id) {
+            <li>{{ a.file_name }} <span style="color: var(--color-muted);">({{ a.attachment_type }})</span></li>
+          }
+        </ul>
+      }
+
+      <div class="field">
+        <label for="attType">Document type</label>
+        <select id="attType" name="attType" [(ngModel)]="selectedAttachmentType">
+          @for (t of attachmentTypes; track t.value) {
+            <option [value]="t.value">{{ t.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="file">File</label>
+        <input id="file" name="file" type="file" (change)="onFileSelected($event)" />
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" [disabled]="!selectedFile || uploading()" (click)="uploadAttachment()">
+          {{ uploading() ? 'Uploading...' : 'Upload' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Payment Required</h3>
+      <p>This consultation requires payment before AI analysis and expert review begin.</p>
+      @if (errorMessage()) {
+        <p class="error">{{ errorMessage() }}</p>
+      }
+      <div class="btn-row">
+        <button type="button" class="btn" [disabled]="paying()" (click)="pay()">
+          {{ paying() ? 'Processing payment...' : 'Pay Now' }}
+        </button>
+      </div>
+    </div>
+  } @else if (q.status === 'sent' && q.final_answer; as answer) {
+    <div class="card">
+      <h3>Expert-Verified Consultation</h3>
+
+      <h4>Technical Conclusion</h4>
+      <p style="white-space: pre-wrap;">{{ answer.final_technical_conclusion }}</p>
+
+      @if (answer.final_technical_reasoning) {
+        <h4>Technical Reasoning</h4>
+        <p style="white-space: pre-wrap;">{{ answer.final_technical_reasoning }}</p>
+      }
+
+      @if (answer.final_recommended_action) {
+        <h4>Recommended Action</h4>
+        <p style="white-space: pre-wrap;">{{ answer.final_recommended_action }}</p>
+      }
+
+      <p style="font-size: 0.8rem; color: var(--color-muted);">
+        Sent {{ answer.sent_at | date: 'medium' }} via {{ answer.sent_via.join(', ') }}
+      </p>
+    </div>
+  } @else {
+    <div class="card">
+      <h3>Status</h3>
+      @switch (q.status) {
+        @case ('paid') {
+          <p>Payment received. Your question is queued for AI-assisted analysis.</p>
+        }
+        @case ('ai_processing') {
+          <p>Our AI/RAG engine is preparing a draft technical response from the approved knowledge base.</p>
+        }
+        @case ('draft_ready') {
+          <p>A draft response is ready and awaiting review by a metallurgical expert.</p>
+        }
+        @case ('under_expert_review') {
+          <p>A metallurgical expert is reviewing this consultation.</p>
+        }
+        @case ('more_info_requested') {
+          <p>The reviewing expert has requested more information. We'll be in touch.</p>
+        }
+        @case ('approved') {
+          <p>Your consultation has been approved by an expert and will be released to you shortly.</p>
+        }
+        @case ('rejected') {
+          <p>This query could not be answered from the approved knowledge base. Our team will follow up with you.</p>
+        }
+        @default {
+          <p>Status: {{ q.status }}</p>
+        }
+      }
+    </div>
+  }
+}

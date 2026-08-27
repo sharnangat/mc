@@ -1,0 +1,25 @@
+<nav class="nav">
+  <a routerLink="/" class="brand">Metallurgical Consultation</a>
+
+  @if (auth.isLoggedIn()) {
+    <div class="links">
+      <a routerLink="/queries" routerLinkActive="active">My Queries</a>
+      <a routerLink="/queries/new" routerLinkActive="active">New Query</a>
+      <a routerLink="/chat" routerLinkActive="active">AI Chat</a>
+      @if (auth.hasRole('expert', 'admin', 'superadmin')) {
+        <a routerLink="/expert" routerLinkActive="active">Expert Dashboard</a>
+      }
+      @if (auth.hasRole('admin', 'superadmin')) {
+        <a routerLink="/admin/documents" routerLinkActive="active">Documents</a>
+        <a routerLink="/admin/pricing" routerLinkActive="active">Pricing</a>
+      }
+      <span class="user">{{ auth.currentUser()?.full_name }}</span>
+      <button type="button" (click)="logout()">Log out</button>
+    </div>
+  } @else {
+    <div class="links">
+      <a routerLink="/login" routerLinkActive="active">Log in</a>
+      <a routerLink="/register" routerLinkActive="active">Register</a>
+    </div>
+  }
+</nav>

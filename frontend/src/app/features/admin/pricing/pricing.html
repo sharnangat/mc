@@ -1,0 +1,39 @@
+<div class="card">
+  <h2>Consultation Pricing</h2>
+
+  @if (loading()) {
+    <p>Loading...</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Plan</th>
+          <th>Description</th>
+          <th>Price (₹)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (plan of plans(); track plan.id) {
+          <tr>
+            <td>{{ plan.name }}</td>
+            <td style="color: var(--color-muted); font-size: 0.85rem;">{{ plan.description }}</td>
+            <td>
+              <input type="number" min="0" step="1" style="width: 100px;" [(ngModel)]="drafts[plan.id]" [name]="'price-' + plan.id" />
+            </td>
+            <td>
+              <button
+                type="button"
+                class="btn secondary"
+                [disabled]="savingId() === plan.id || drafts[plan.id] === plan.price_inr"
+                (click)="save(plan)"
+              >
+                {{ savingId() === plan.id ? 'Saving...' : 'Save' }}
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

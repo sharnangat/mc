@@ -1,0 +1,33 @@
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>My Consultations</h2>
+    <a class="btn" routerLink="/queries/new">New Query</a>
+  </div>
+
+  @if (loading()) {
+    <p>Loading...</p>
+  } @else if (queries().length === 0) {
+    <p>You haven't submitted any consultation queries yet.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Query</th>
+          <th>Question</th>
+          <th>Status</th>
+          <th>Submitted</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (q of queries(); track q.id) {
+          <tr>
+            <td><a [routerLink]="['/queries', q.id]">{{ q.query_code || q.id.slice(0, 8) }}</a></td>
+            <td>{{ q.question_text.slice(0, 60) }}{{ q.question_text.length > 60 ? '...' : '' }}</td>
+            <td><span class="badge" [class]="'status-' + q.status">{{ q.status }}</span></td>
+            <td>{{ q.created_at | date: 'medium' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

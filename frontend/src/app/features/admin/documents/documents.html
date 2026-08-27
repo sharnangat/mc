@@ -1,0 +1,120 @@
+<div class="card">
+  <h2>Upload Knowledge Document</h2>
+  <p style="font-size: 0.85rem; color: var(--color-muted);">
+    Newly uploaded documents are disabled for AI use by default. Enable a document only once its licence/rights
+    are confirmed and it has been ingested.
+  </p>
+
+  <div class="field">
+    <label for="title">Title</label>
+    <input id="title" name="title" type="text" [(ngModel)]="title" />
+  </div>
+  <div class="field">
+    <label for="docType">Document Type</label>
+    <select id="docType" name="docType" [(ngModel)]="documentType">
+      @for (t of documentTypes; track t) {
+        <option [value]="t">{{ t }}</option>
+      }
+    </select>
+  </div>
+  <div class="field">
+    <label for="standardName">Standard / Handbook Name (optional)</label>
+    <input id="standardName" name="standardName" type="text" [(ngModel)]="standardName" placeholder="e.g. ASTM E8" />
+  </div>
+  <div class="field">
+    <label for="licence">Licence Status</label>
+    <select id="licence" name="licence" [(ngModel)]="licenceStatus">
+      <option value="internal">Internal</option>
+      <option value="owned">Owned</option>
+      <option value="licensed">Licensed</option>
+      <option value="public_domain">Public Domain</option>
+      <option value="unlicensed">Unlicensed</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="access">Access Permission</label>
+    <select id="access" name="access" [(ngModel)]="accessPermission">
+      <option value="restricted">Restricted</option>
+      <option value="internal">Internal</option>
+      <option value="public">Public</option>
+      <option value="admin_only">Admin Only</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="file">File</label>
+    <input id="file" name="file" type="file" (change)="onFileSelected($event)" />
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  <div class="btn-row">
+    <button type="button" class="btn" [disabled]="uploading() || !title || !file" (click)="upload()">
+      {{ uploading() ? 'Uploading...' : 'Upload' }}
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Documents</h2>
+
+  @if (loading()) {
+    <p>Loading...</p>
+  } @else if (documents().length === 0) {
+    <p>No documents uploaded yet.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Type</th>
+          <th>Licence</th>
+          <th>Indexing</th>
+          <th>Enabled for AI</th>
+          <th>Uploaded</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (doc of documents(); track doc.id) {
+          <tr>
+            <td>{{ doc.title }}</td>
+            <td>{{ doc.document_type }}</td>
+            <td>{{ doc.licence_status }}</td>
+            <td>{{ doc.indexing_status }}</td>
+            <td>
+              <input type="checkbox" [checked]="doc.is_enabled_for_ai" (change)="toggleEnabled(doc)" />
+            </td>
+            <td>{{ doc.uploaded_at | date: 'short' }}</td>
+            <td style="white-space: nowrap;">
+              <button type="button" class="btn secondary" [disabled]="ingestingId() === doc.id" (click)="ingestFromFile(doc)">
+                {{ ingestingId() === doc.id ? 'Ingesting...' : 'Ingest from file' }}
+              </button>
+              <button type="button" class="btn secondary" (click)="openIngest(doc)">Paste text instead</button>
+              <button type="button" class="btn danger" (click)="remove(doc)">Delete</button>
+            </td>
+          </tr>
+          @if (ingestOpenFor() === doc.id) {
+            <tr>
+              <td colspan="7">
+                <div class="field">
+                  <label for="ingestText-{{ doc.id }}">
+                    Override text (optional - paste text here to index it instead of auto-extracting from the file, e.g. for a scanned/image-only PDF)
+                  </label>
+                  <textarea id="ingestText-{{ doc.id }}" rows="5" [(ngModel)]="ingestText" name="ingestText"></textarea>
+                </div>
+                <div class="btn-row">
+                  <button type="button" class="btn" [disabled]="ingesting()" (click)="submitIngest(doc)">
+                    {{ ingesting() ? 'Ingesting...' : 'Ingest & Index' }}
+                  </button>
+                  <button type="button" class="btn secondary" (click)="ingestOpenFor.set(null)">Cancel</button>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  }
+</div>

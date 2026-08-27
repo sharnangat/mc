@@ -1,0 +1,137 @@
+@if (loading()) {
+  <p>Loading...</p>
+} @else if (detail(); as d) {
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>{{ d.query.query_code }}</h2>
+      <span class="badge" [class]="'status-' + d.query.status">{{ d.query.status }}</span>
+    </div>
+    <p style="white-space: pre-wrap;">{{ d.query.question_text }}</p>
+  </div>
+
+  @if (d.attachments.length > 0) {
+    <div class="card">
+      <h3>Customer Attachments</h3>
+      <ul>
+        @for (a of d.attachments; track a.id) {
+          <li>{{ a.file_name }} <span style="color: var(--color-muted);">({{ a.attachment_type }})</span></li>
+        }
+      </ul>
+    </div>
+  }
+
+  <div class="card">
+    <h3>AI Draft Answer</h3>
+
+    @if (!d.ai_answer) {
+      <p>No AI draft has been generated yet.</p>
+    } @else {
+      @if (d.ai_answer.insufficient_information) {
+        <p class="error">The AI reported insufficient information in the approved knowledge base.</p>
+      }
+
+      @if (!editMode()) {
+        <h4>Technical Conclusion</h4>
+        <p style="white-space: pre-wrap;">{{ d.ai_answer.technical_conclusion }}</p>
+
+        @if (d.ai_answer.technical_reasoning) {
+          <h4>Technical Reasoning</h4>
+          <p style="white-space: pre-wrap;">{{ d.ai_answer.technical_reasoning }}</p>
+        }
+
+        @if (d.ai_answer.recommended_action) {
+          <h4>Recommended Action</h4>
+          <p style="white-space: pre-wrap;">{{ d.ai_answer.recommended_action }}</p>
+        }
+      } @else {
+        <div class="field">
+          <label for="conclusion">Technical Conclusion</label>
+          <textarea id="conclusion" name="conclusion" rows="4" [(ngModel)]="editedConclusion"></textarea>
+        </div>
+        <div class="field">
+          <label for="reasoning">Technical Reasoning</label>
+          <textarea id="reasoning" name="reasoning" rows="4" [(ngModel)]="editedReasoning"></textarea>
+        </div>
+        <div class="field">
+          <label for="action">Recommended Action</label>
+          <textarea id="action" name="action" rows="3" [(ngModel)]="editedRecommendedAction"></textarea>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn" [disabled]="busy()" (click)="saveEdit()">Save Edit</button>
+          <button type="button" class="btn secondary" (click)="editMode.set(false)">Cancel</button>
+        </div>
+      }
+
+      @if (d.ai_answer.sources.length > 0) {
+        <h4>Sources Retrieved</h4>
+        <ul>
+          @for (s of d.ai_answer.sources; track s.id) {
+            <li>
+              {{ s.cited_text?.slice(0, 140) }}{{ (s.cited_text?.length ?? 0) > 140 ? '...' : '' }}
+              @if (s.relevance_score) {
+                <span style="color: var(--color-muted);"> (relevance {{ s.relevance_score }})</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+    }
+  </div>
+
+  <div class="card">
+    <h3>Expert Actions</h3>
+
+    @if (errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
+    @if (infoMessage()) {
+      <p style="color: var(--color-success);">{{ infoMessage() }}</p>
+    }
+
+    <div class="field">
+      <label for="comment">Comment (used for reject / request more info / standalone comment)</label>
+      <textarea id="comment" name="comment" rows="2" [(ngModel)]="comment"></textarea>
+    </div>
+
+    <div class="btn-row">
+      @if (!editMode() && d.ai_answer) {
+        <button type="button" class="btn secondary" [disabled]="busy()" (click)="startEdit()">Edit Answer</button>
+      }
+      <button type="button" class="btn" [disabled]="busy() || !d.ai_answer" (click)="approve()">Approve</button>
+      <button type="button" class="btn danger" [disabled]="busy()" (click)="reject()">Reject</button>
+      <button type="button" class="btn secondary" [disabled]="busy()" (click)="requestMoreInfo()">Request More Info</button>
+      <button type="button" class="btn secondary" [disabled]="busy()" (click)="rerunAnalysis()">Re-run Analysis</button>
+      <button type="button" class="btn secondary" [disabled]="busy()" (click)="addComment()">Add Comment</button>
+    </div>
+
+    @if (d.query.status === 'approved') {
+      <div class="btn-row">
+        <button type="button" class="btn" [disabled]="busy()" (click)="sendToCustomer()">Send to Customer</button>
+      </div>
+    }
+  </div>
+
+  @if (d.reviews.length > 0) {
+    <div class="card">
+      <h3>Review History</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Comment</th>
+            <th>When</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of d.reviews; track r.id) {
+            <tr>
+              <td>{{ r.action }}</td>
+              <td>{{ r.comment }}</td>
+              <td>{{ r.created_at | date: 'medium' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
