@@ -30,7 +30,7 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'DEPLOY_HOST', defaultValue: '', description: 'Target server hostname/IP (required)')
+        string(name: 'DEPLOY_HOST', defaultValue: '139.59.81.129', description: 'Target server hostname/IP')
         string(name: 'DEPLOY_USER', defaultValue: 'deploy', description: 'SSH user on the target server')
         booleanParam(name: 'SKIP_FRONTEND_TESTS', defaultValue: false, description: 'Skip `ng test` (requires Chrome on the agent)')
     }
