@@ -7,11 +7,14 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import venv" >/dev/null 2>&1; then
-    echo "Installing Python and the venv module..."
-    sudo apt-get update -qq
-    sudo apt-get install -y -qq python3 python3-venv python3-pip
-fi
+# Always run this (not gated on `python3 -c "import venv"` succeeding) -
+# that module import succeeds even without python3-venv installed, since the
+# venv module itself ships in base python3 while the ensurepip bootstrap
+# files it needs at creation time live in the separate python3-venv package.
+# apt is a fast no-op when everything's already installed.
+echo "Ensuring Python, pip, and venv support are installed..."
+sudo apt-get update -qq
+sudo apt-get install -y -qq python3 python3-venv python3-pip
 
 VENV_PY=".venv/bin/python"
 if [ -f "$VENV_PY" ] && ! "$VENV_PY" -m pip --version >/dev/null 2>&1; then
