@@ -27,5 +27,5 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
 fi
 
-echo "Starting API at http://0.0.0.0:8000  (docs at /docs)"
+echo "Starting API at http://139.59.81.129:8000  (docs at /docs)"
 exec "$VENV_PY" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
