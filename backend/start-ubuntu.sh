@@ -14,6 +14,10 @@ if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import venv" >/dev/null
 fi
 
 VENV_PY=".venv/bin/python"
+if [ -f "$VENV_PY" ] && ! "$VENV_PY" -m pip --version >/dev/null 2>&1; then
+    echo "Existing .venv is broken (no pip) - recreating it..."
+    rm -rf .venv
+fi
 if [ ! -f "$VENV_PY" ]; then
     echo "Creating virtual environment..."
     python3 -m venv .venv
