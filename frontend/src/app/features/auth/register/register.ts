@@ -37,7 +37,7 @@ export class Register {
         company_name: this.companyName || undefined,
       })
       .subscribe({
-        next: () => this.router.navigateByUrl('/login'),
+        next: () => this.router.navigateByUrl('/auth/login'),
         error: (err: HttpErrorResponse) => {
           this.submitting.set(false);
           this.errorMessage.set(err.status === 409 ? 'That email is already registered.' : 'Registration failed.');

@@ -76,7 +76,7 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
     this.currentUserSignal.set(null);
-    this.router.navigate(['/login']);
+    this.router.navigate(['/auth/login']);
   }
 
   hasRole(...roles: string[]): boolean {

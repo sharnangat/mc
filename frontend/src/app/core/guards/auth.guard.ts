@@ -8,7 +8,7 @@ export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  return auth.ensureUserLoaded().pipe(map((user) => (user ? true : router.createUrlTree(['/login']))));
+  return auth.ensureUserLoaded().pipe(map((user) => (user ? true : router.createUrlTree(['/auth/login']))));
 };
 
 export function roleGuard(...roles: string[]): CanActivateFn {
@@ -18,7 +18,7 @@ export function roleGuard(...roles: string[]): CanActivateFn {
 
     return auth.ensureUserLoaded().pipe(
       map((user) => {
-        if (!user) return router.createUrlTree(['/login']);
+        if (!user) return router.createUrlTree(['/auth/login']);
         if (!roles.some((r) => user.roles.includes(r))) return router.createUrlTree(['/']);
         return true;
       })
