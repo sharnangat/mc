@@ -1,0 +1,23 @@
+# systemd unit for the FastAPI backend.
+#
+# Install once: copy to /etc/systemd/system/mc-backend.service,
+# `systemctl daemon-reload && systemctl enable mc-backend`. The Jenkins
+# pipeline only runs `systemctl restart mc-backend` on each deploy - it does
+# not modify this file.
+
+[Unit]
+Description=Metallurgical Consultation API (FastAPI/uvicorn)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=mc
+Group=mc
+WorkingDirectory=/opt/mc/current/backend
+EnvironmentFile=/opt/mc/shared/backend.env
+ExecStart=/opt/mc/current/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
