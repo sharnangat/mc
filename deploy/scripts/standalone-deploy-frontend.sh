@@ -36,8 +36,8 @@ echo "==> Installing frontend dependencies"
 cd "$FRONTEND_DIR"
 npm ci
 
-echo "==> Building for production"
-npx ng build --configuration production
+echo "==> Building for production (served from /mc/)"
+npx ng build --configuration production --base-href /mc/
 
 if [ ! -f "$BUILD_DIR/index.html" ]; then
     echo "ERROR: build did not produce $BUILD_DIR/index.html" >&2
@@ -49,9 +49,6 @@ tee /etc/nginx/sites-available/mc.conf > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
-
-    root $BUILD_DIR;
-    index index.html;
 
     location /api/ {
         proxy_pass http://127.0.0.1:8000/;
@@ -65,8 +62,20 @@ server {
         proxy_pass http://127.0.0.1:8000/health;
     }
 
-    location / {
-        try_files \$uri \$uri/ /index.html;
+    # App lives under /mc/ (matches --base-href above). alias (not root) is
+    # required here so the /mc/ prefix isn't appended again when looking up
+    # files on disk.
+    location /mc/ {
+        alias $BUILD_DIR/;
+        try_files \$uri \$uri/ /mc/index.html;
+    }
+
+    location = /mc {
+        return 301 /mc/;
+    }
+
+    location = / {
+        return 301 /mc/;
     }
 }
 EOF
@@ -80,10 +89,10 @@ systemctl enable nginx >/dev/null
 systemctl reload nginx 2>/dev/null || systemctl restart nginx
 
 echo "==> Checking the frontend is served"
-if ! curl -sf http://127.0.0.1/ >/dev/null; then
-    echo "ERROR: nginx did not serve the frontend. Check: journalctl -u nginx -n 50 --no-pager" >&2
+if ! curl -sf http://127.0.0.1/mc/ >/dev/null; then
+    echo "ERROR: nginx did not serve the frontend at /mc/. Check: journalctl -u nginx -n 50 --no-pager" >&2
     exit 1
 fi
 
-echo "==> Frontend is up: http://$(curl -s -4 ifconfig.me 2>/dev/null || echo '<this-server-ip>')/"
+echo "==> Frontend is up: http://$(curl -s -4 ifconfig.me 2>/dev/null || echo '<this-server-ip>')/mc/"
 echo "    (API calls proxy through /api/ to the backend - deploy it separately with standalone-deploy.sh if you haven't)"
