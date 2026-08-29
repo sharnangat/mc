@@ -29,6 +29,14 @@ fi
 echo "==> Linking shared backend .env"
 ln -sf "$APP_ROOT/shared/backend.env" "$RELEASE_DIR/backend/.env"
 
+echo "==> Linking shared uploads directory"
+# UPLOAD_DIR=./uploads resolves inside the release dir, which is replaced on
+# every deploy - point it at a location that survives across releases instead
+# of losing customer-uploaded documents each time.
+mkdir -p "$APP_ROOT/shared/uploads"
+rm -rf "$RELEASE_DIR/backend/uploads"
+ln -sfn "$APP_ROOT/shared/uploads" "$RELEASE_DIR/backend/uploads"
+
 echo "==> Creating backend virtualenv and installing dependencies"
 python3 -m venv "$RELEASE_DIR/backend/.venv"
 "$RELEASE_DIR/backend/.venv/bin/pip" install --no-cache-dir --quiet --upgrade pip
