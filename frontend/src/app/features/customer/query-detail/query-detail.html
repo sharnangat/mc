@@ -1,31 +1,39 @@
 @if (loading()) {
-  <p>Loading...</p>
+  <div class="card">
+    <div class="loading-state">
+      <span class="spinner"></span>
+      <span>Loading consultation...</span>
+    </div>
+  </div>
 } @else if (query(); as q) {
   <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="page-header">
       <h2>{{ q.query_code }}</h2>
       <span class="badge" [class]="'status-' + q.status">{{ q.status }}</span>
     </div>
-    <p style="white-space: pre-wrap;">{{ q.question_text }}</p>
-    <p style="font-size: 0.8rem; color: var(--color-muted);">Submitted {{ q.created_at | date: 'medium' }}</p>
+    <p class="pre-wrap">{{ q.question_text }}</p>
+    <p class="meta">Submitted {{ q.created_at | date: 'medium' }}</p>
   </div>
 
   @if (q.status === 'pending_payment') {
     <div class="card">
       <h3>Supporting Documents (optional)</h3>
-      <p style="font-size: 0.85rem; color: var(--color-muted);">
+      <p class="subtitle">
         Upload chemical composition, hardness/tensile results, heat-treatment cycle, photographs, drawings etc.
       </p>
 
       @if (q.attachments.length > 0) {
-        <ul>
+        <ul class="list-plain">
           @for (a of q.attachments; track a.id) {
-            <li>{{ a.file_name }} <span style="color: var(--color-muted);">({{ a.attachment_type }})</span></li>
+            <li>
+              <span>{{ a.file_name }}</span>
+              <span class="meta">{{ a.attachment_type }}</span>
+            </li>
           }
         </ul>
       }
 
-      <div class="field">
+      <div class="field" style="margin-top: 1rem;">
         <label for="attType">Document type</label>
         <select id="attType" name="attType" [(ngModel)]="selectedAttachmentType">
           @for (t of attachmentTypes; track t.value) {
@@ -46,7 +54,7 @@
 
     <div class="card">
       <h3>Payment Required</h3>
-      <p>This consultation requires payment before AI analysis and expert review begin.</p>
+      <p class="subtitle">This consultation requires payment before AI analysis and expert review begin.</p>
       @if (errorMessage()) {
         <p class="error">{{ errorMessage() }}</p>
       }
@@ -61,21 +69,25 @@
       <h3>Expert-Verified Consultation</h3>
 
       <h4>Technical Conclusion</h4>
-      <p style="white-space: pre-wrap;">{{ answer.final_technical_conclusion }}</p>
+      <div class="answer-block">
+        <p>{{ answer.final_technical_conclusion }}</p>
+      </div>
 
       @if (answer.final_technical_reasoning) {
         <h4>Technical Reasoning</h4>
-        <p style="white-space: pre-wrap;">{{ answer.final_technical_reasoning }}</p>
+        <div class="answer-block">
+          <p>{{ answer.final_technical_reasoning }}</p>
+        </div>
       }
 
       @if (answer.final_recommended_action) {
         <h4>Recommended Action</h4>
-        <p style="white-space: pre-wrap;">{{ answer.final_recommended_action }}</p>
+        <div class="answer-block">
+          <p>{{ answer.final_recommended_action }}</p>
+        </div>
       }
 
-      <p style="font-size: 0.8rem; color: var(--color-muted);">
-        Sent {{ answer.sent_at | date: 'medium' }} via {{ answer.sent_via.join(', ') }}
-      </p>
+      <p class="meta">Sent {{ answer.sent_at | date: 'medium' }} via {{ answer.sent_via.join(', ') }}</p>
     </div>
   } @else {
     <div class="card">

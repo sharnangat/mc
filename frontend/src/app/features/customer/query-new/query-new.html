@@ -1,5 +1,6 @@
-<div class="card" style="max-width: 640px;">
+<div class="card card-narrow">
   <h2>New Metallurgical Consultation</h2>
+  <p class="subtitle">Tell us about the problem and we'll route it through AI-assisted, expert-verified review.</p>
 
   <form (ngSubmit)="submit()">
     <div class="field">
@@ -45,7 +46,7 @@
       <p class="error">{{ errorMessage() }}</p>
     }
 
-    <p style="font-size: 0.85rem; color: var(--color-muted);">
+    <p class="field-note">
       You'll be able to upload supporting documents (hardness reports, chemical composition, photographs, etc.)
       and complete payment on the next screen.
     </p>

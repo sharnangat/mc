@@ -1,20 +1,28 @@
 @if (loading()) {
-  <p>Loading...</p>
+  <div class="card">
+    <div class="loading-state">
+      <span class="spinner"></span>
+      <span>Loading consultation...</span>
+    </div>
+  </div>
 } @else if (detail(); as d) {
   <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="page-header">
       <h2>{{ d.query.query_code }}</h2>
       <span class="badge" [class]="'status-' + d.query.status">{{ d.query.status }}</span>
     </div>
-    <p style="white-space: pre-wrap;">{{ d.query.question_text }}</p>
+    <p class="pre-wrap">{{ d.query.question_text }}</p>
   </div>
 
   @if (d.attachments.length > 0) {
     <div class="card">
       <h3>Customer Attachments</h3>
-      <ul>
+      <ul class="list-plain">
         @for (a of d.attachments; track a.id) {
-          <li>{{ a.file_name }} <span style="color: var(--color-muted);">({{ a.attachment_type }})</span></li>
+          <li>
+            <span>{{ a.file_name }}</span>
+            <span class="meta">{{ a.attachment_type }}</span>
+          </li>
         }
       </ul>
     </div>
@@ -24,24 +32,30 @@
     <h3>AI Draft Answer</h3>
 
     @if (!d.ai_answer) {
-      <p>No AI draft has been generated yet.</p>
+      <p class="subtitle">No AI draft has been generated yet.</p>
     } @else {
       @if (d.ai_answer.insufficient_information) {
-        <p class="error">The AI reported insufficient information in the approved knowledge base.</p>
+        <p class="alert alert-warning">The AI reported insufficient information in the approved knowledge base.</p>
       }
 
       @if (!editMode()) {
         <h4>Technical Conclusion</h4>
-        <p style="white-space: pre-wrap;">{{ d.ai_answer.technical_conclusion }}</p>
+        <div class="answer-block">
+          <p>{{ d.ai_answer.technical_conclusion }}</p>
+        </div>
 
         @if (d.ai_answer.technical_reasoning) {
           <h4>Technical Reasoning</h4>
-          <p style="white-space: pre-wrap;">{{ d.ai_answer.technical_reasoning }}</p>
+          <div class="answer-block">
+            <p>{{ d.ai_answer.technical_reasoning }}</p>
+          </div>
         }
 
         @if (d.ai_answer.recommended_action) {
           <h4>Recommended Action</h4>
-          <p style="white-space: pre-wrap;">{{ d.ai_answer.recommended_action }}</p>
+          <div class="answer-block">
+            <p>{{ d.ai_answer.recommended_action }}</p>
+          </div>
         }
       } @else {
         <div class="field">
@@ -64,12 +78,12 @@
 
       @if (d.ai_answer.sources.length > 0) {
         <h4>Sources Retrieved</h4>
-        <ul>
+        <ul class="list-plain">
           @for (s of d.ai_answer.sources; track s.id) {
-            <li>
-              {{ s.cited_text?.slice(0, 140) }}{{ (s.cited_text?.length ?? 0) > 140 ? '...' : '' }}
+            <li style="align-items: flex-start; flex-direction: column; gap: 0.15rem;">
+              <span>{{ s.cited_text?.slice(0, 140) }}{{ (s.cited_text?.length ?? 0) > 140 ? '...' : '' }}</span>
               @if (s.relevance_score) {
-                <span style="color: var(--color-muted);"> (relevance {{ s.relevance_score }})</span>
+                <span class="meta">relevance {{ s.relevance_score }}</span>
               }
             </li>
           }
@@ -85,7 +99,7 @@
       <p class="error">{{ errorMessage() }}</p>
     }
     @if (infoMessage()) {
-      <p style="color: var(--color-success);">{{ infoMessage() }}</p>
+      <p class="alert alert-success">{{ infoMessage() }}</p>
     }
 
     <div class="field">
@@ -125,9 +139,9 @@
         <tbody>
           @for (r of d.reviews; track r.id) {
             <tr>
-              <td>{{ r.action }}</td>
+              <td class="capitalize">{{ r.action }}</td>
               <td>{{ r.comment }}</td>
-              <td>{{ r.created_at | date: 'medium' }}</td>
+              <td class="meta">{{ r.created_at | date: 'medium' }}</td>
             </tr>
           }
         </tbody>

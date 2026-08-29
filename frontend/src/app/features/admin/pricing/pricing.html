@@ -1,8 +1,13 @@
 <div class="card">
-  <h2>Consultation Pricing</h2>
+  <div class="page-header">
+    <h2>Consultation Pricing</h2>
+  </div>
 
   @if (loading()) {
-    <p>Loading...</p>
+    <div class="loading-state">
+      <span class="spinner"></span>
+      <span>Loading pricing plans...</span>
+    </div>
   } @else {
     <table>
       <thead>
@@ -17,14 +22,14 @@
         @for (plan of plans(); track plan.id) {
           <tr>
             <td>{{ plan.name }}</td>
-            <td style="color: var(--color-muted); font-size: 0.85rem;">{{ plan.description }}</td>
+            <td class="meta">{{ plan.description }}</td>
             <td>
-              <input type="number" min="0" step="1" style="width: 100px;" [(ngModel)]="drafts[plan.id]" [name]="'price-' + plan.id" />
+              <input type="number" min="0" step="1" class="input-price" [(ngModel)]="drafts[plan.id]" [name]="'price-' + plan.id" />
             </td>
             <td>
               <button
                 type="button"
-                class="btn secondary"
+                class="btn secondary sm"
                 [disabled]="savingId() === plan.id || drafts[plan.id] === plan.price_inr"
                 (click)="save(plan)"
               >

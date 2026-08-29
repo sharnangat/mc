@@ -1,10 +1,17 @@
 <div class="card">
-  <h2>Expert Review Queue</h2>
+  <div class="page-header">
+    <h2>Expert Review Queue</h2>
+  </div>
 
   @if (loading()) {
-    <p>Loading...</p>
+    <div class="loading-state">
+      <span class="spinner"></span>
+      <span>Loading queue...</span>
+    </div>
   } @else if (queries().length === 0) {
-    <p>No queries are currently awaiting review.</p>
+    <div class="empty-state">
+      <p>No queries are currently awaiting review.</p>
+    </div>
   } @else {
     <table>
       <thead>
@@ -21,9 +28,9 @@
           <tr>
             <td><a [routerLink]="['/expert', q.id]">{{ q.query_code || q.id.slice(0, 8) }}</a></td>
             <td>{{ q.question_text.slice(0, 60) }}{{ q.question_text.length > 60 ? '...' : '' }}</td>
-            <td>{{ q.priority }}</td>
+            <td class="capitalize">{{ q.priority }}</td>
             <td><span class="badge" [class]="'status-' + q.status">{{ q.status }}</span></td>
-            <td>{{ q.created_at | date: 'medium' }}</td>
+            <td class="meta">{{ q.created_at | date: 'medium' }}</td>
           </tr>
         }
       </tbody>

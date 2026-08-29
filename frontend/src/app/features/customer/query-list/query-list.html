@@ -1,13 +1,19 @@
 <div class="card">
-  <div style="display: flex; justify-content: space-between; align-items: center;">
+  <div class="page-header">
     <h2>My Consultations</h2>
     <a class="btn" routerLink="/queries/new">New Query</a>
   </div>
 
   @if (loading()) {
-    <p>Loading...</p>
+    <div class="loading-state">
+      <span class="spinner"></span>
+      <span>Loading your consultations...</span>
+    </div>
   } @else if (queries().length === 0) {
-    <p>You haven't submitted any consultation queries yet.</p>
+    <div class="empty-state">
+      <p>You haven't submitted any consultation queries yet.</p>
+      <a class="btn secondary" routerLink="/queries/new">Submit your first query</a>
+    </div>
   } @else {
     <table>
       <thead>
@@ -24,7 +30,7 @@
             <td><a [routerLink]="['/queries', q.id]">{{ q.query_code || q.id.slice(0, 8) }}</a></td>
             <td>{{ q.question_text.slice(0, 60) }}{{ q.question_text.length > 60 ? '...' : '' }}</td>
             <td><span class="badge" [class]="'status-' + q.status">{{ q.status }}</span></td>
-            <td>{{ q.created_at | date: 'medium' }}</td>
+            <td class="meta">{{ q.created_at | date: 'medium' }}</td>
           </tr>
         }
       </tbody>

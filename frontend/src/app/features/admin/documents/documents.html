@@ -1,6 +1,6 @@
 <div class="card">
   <h2>Upload Knowledge Document</h2>
-  <p style="font-size: 0.85rem; color: var(--color-muted);">
+  <p class="subtitle">
     Newly uploaded documents are disabled for AI use by default. Enable a document only once its licence/rights
     are confirmed and it has been ingested.
   </p>
@@ -57,12 +57,19 @@
 </div>
 
 <div class="card">
-  <h2>Documents</h2>
+  <div class="page-header">
+    <h2>Documents</h2>
+  </div>
 
   @if (loading()) {
-    <p>Loading...</p>
+    <div class="loading-state">
+      <span class="spinner"></span>
+      <span>Loading documents...</span>
+    </div>
   } @else if (documents().length === 0) {
-    <p>No documents uploaded yet.</p>
+    <div class="empty-state">
+      <p>No documents uploaded yet.</p>
+    </div>
   } @else {
     <table>
       <thead>
@@ -86,13 +93,15 @@
             <td>
               <input type="checkbox" [checked]="doc.is_enabled_for_ai" (change)="toggleEnabled(doc)" />
             </td>
-            <td>{{ doc.uploaded_at | date: 'short' }}</td>
-            <td style="white-space: nowrap;">
-              <button type="button" class="btn secondary" [disabled]="ingestingId() === doc.id" (click)="ingestFromFile(doc)">
-                {{ ingestingId() === doc.id ? 'Ingesting...' : 'Ingest from file' }}
-              </button>
-              <button type="button" class="btn secondary" (click)="openIngest(doc)">Paste text instead</button>
-              <button type="button" class="btn danger" (click)="remove(doc)">Delete</button>
+            <td class="meta">{{ doc.uploaded_at | date: 'short' }}</td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="btn secondary sm" [disabled]="ingestingId() === doc.id" (click)="ingestFromFile(doc)">
+                  {{ ingestingId() === doc.id ? 'Ingesting...' : 'Ingest from file' }}
+                </button>
+                <button type="button" class="btn secondary sm" (click)="openIngest(doc)">Paste text instead</button>
+                <button type="button" class="btn danger sm" (click)="remove(doc)">Delete</button>
+              </div>
             </td>
           </tr>
           @if (ingestOpenFor() === doc.id) {

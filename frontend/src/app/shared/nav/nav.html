@@ -1,5 +1,8 @@
 <nav class="nav">
-  <a routerLink="/" class="brand">Metallurgical Consultation</a>
+  <a routerLink="/" class="brand">
+    <span class="brand-mark">MC</span>
+    Metallurgical Consultation
+  </a>
 
   @if (auth.isLoggedIn()) {
     <div class="links">
@@ -13,7 +16,11 @@
         <a routerLink="/admin/documents" routerLinkActive="active">Documents</a>
         <a routerLink="/admin/pricing" routerLinkActive="active">Pricing</a>
       }
-      <span class="user">{{ auth.currentUser()?.full_name }}</span>
+      <span class="nav-divider"></span>
+      <div class="user">
+        <span class="user-avatar">{{ auth.currentUser()?.full_name?.charAt(0) }}</span>
+        <span class="user-name">{{ auth.currentUser()?.full_name }}</span>
+      </div>
       <button type="button" (click)="logout()">Log out</button>
     </div>
   } @else {
