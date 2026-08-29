@@ -36,7 +36,8 @@ pipeline {
     }
 
     environment {
-        APP_ROOT = '/opt/mc'
+        APP_ROOT   = '/opt/mc'
+        RELEASE_ID = "${BUILD_NUMBER}"
     }
 
     options {
@@ -47,10 +48,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                script {
-                    def scmVars = checkout scm
-                    env.RELEASE_ID = "${env.BUILD_NUMBER}-${scmVars.GIT_COMMIT ? scmVars.GIT_COMMIT.take(7) : 'local'}"
-                }
+                checkout scm
+                sh 'echo "Deploying commit: $(git rev-parse HEAD)"'
             }
         }
 
@@ -72,11 +71,12 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh 'npm ci'
-                    script {
-                        if (!params.SKIP_FRONTEND_TESTS) {
-                            sh 'npx ng test --watch=false --browsers=ChromeHeadless'
-                        }
-                    }
+                    sh '''
+                        set -eu
+                        if [ "${SKIP_FRONTEND_TESTS}" != "true" ]; then
+                            npx ng test --watch=false --browsers=ChromeHeadless
+                        fi
+                    '''
                     sh 'npx ng build --configuration production'
                 }
             }
@@ -84,11 +84,13 @@ pipeline {
 
         stage('Ship release to target server') {
             steps {
-                script {
-                    if (!params.DEPLOY_HOST?.trim()) {
-                        error 'DEPLOY_HOST is required (pass it as a build parameter).'
-                    }
-                }
+                sh '''
+                    set -eu
+                    if [ -z "${DEPLOY_HOST:-}" ]; then
+                        echo "ERROR: DEPLOY_HOST is required (pass it as a build parameter)." >&2
+                        exit 1
+                    fi
+                '''
                 sshagent(credentials: ['mc-deploy-ssh']) {
                     withCredentials([file(credentialsId: 'mc-backend-env', variable: 'BACKEND_ENV_FILE')]) {
                         sh '''
