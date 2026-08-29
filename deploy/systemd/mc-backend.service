@@ -15,7 +15,10 @@ User=mc
 Group=mc
 WorkingDirectory=/opt/mc/current/backend
 EnvironmentFile=/opt/mc/shared/backend.env
-ExecStart=/opt/mc/current/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+# --workers 1: a small droplet (e.g. 1GB RAM) can't comfortably run two full
+# copies of this app (it loads sentence-transformers into memory) - raise
+# this only once the host has RAM to spare.
+ExecStart=/opt/mc/current/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=on-failure
 RestartSec=5
 

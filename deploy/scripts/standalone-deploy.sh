@@ -61,7 +61,9 @@ Type=simple
 User=root
 WorkingDirectory=$BACKEND_DIR
 EnvironmentFile=$BACKEND_DIR/.env
-ExecStart=$BACKEND_DIR/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+# --workers 1: a small droplet (e.g. 1GB RAM) can't comfortably run two full
+# copies of this app (it loads sentence-transformers into memory).
+ExecStart=$BACKEND_DIR/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=on-failure
 RestartSec=5
 
