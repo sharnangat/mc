@@ -79,7 +79,7 @@ systemctl restart mc-backend
 echo "==> Health-checking"
 HEALTHY=0
 for _ in $(seq 1 15); do
-    if curl -sf http://127.0.0.1:8000/health >/dev/null; then
+    if curl -sf http://127.0.0.1:8000/health; then
         HEALTHY=1
         break
     fi
