@@ -17,10 +17,14 @@ VENV_PY=".venv/bin/python"
 if [ ! -f "$VENV_PY" ]; then
     echo "Creating virtual environment..."
     python3 -m venv .venv
-    echo "Installing dependencies..."
-    "$VENV_PY" -m pip install --no-cache-dir --quiet --upgrade pip
-    "$VENV_PY" -m pip install --no-cache-dir -r requirements.txt
 fi
+
+# Always (re)install - pip is a fast no-op when everything's already
+# satisfied, and this fixes itself if a previous run created the venv but
+# failed partway through before dependencies were installed.
+echo "Installing dependencies..."
+"$VENV_PY" -m pip install --no-cache-dir --quiet --upgrade pip
+"$VENV_PY" -m pip install --no-cache-dir -r requirements.txt
 
 if [ ! -f ".env" ]; then
     echo "Creating .env from .env.example - edit it with real values before relying on this."
