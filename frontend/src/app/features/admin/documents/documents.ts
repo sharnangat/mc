@@ -82,9 +82,17 @@ export class Documents implements OnInit {
           this.file = null;
           this.reload();
         },
-        error: () => {
+        error: (err) => {
           this.uploading.set(false);
-          this.errorMessage.set('Upload failed.');
+          const detail = err?.error?.detail;
+          const status = err?.status;
+          if (status === 413) {
+            this.errorMessage.set('Upload failed: file is too large (max 300 MB).');
+          } else if (typeof detail === 'string') {
+            this.errorMessage.set(detail);
+          } else {
+            this.errorMessage.set('Upload failed.');
+          }
         },
       });
   }
