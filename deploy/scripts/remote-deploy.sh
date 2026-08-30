@@ -48,11 +48,19 @@ if [ -z "$DB_URL" ]; then
     echo "ERROR: DATABASE_URL not found in $APP_ROOT/shared/backend.env" >&2
     exit 1
 fi
-# db/deploy.sql creates the target database itself, so connect to the
-# "postgres" maintenance database first, same as running it by hand.
+
 PG_URL=${DB_URL/postgresql+asyncpg:/postgresql:}
-MAINT_URL=$(echo "$PG_URL" | sed -E 's#(postgresql://[^/]+)/[^?]*#\1/postgres#')
-psql "$MAINT_URL" -v ON_ERROR_STOP=1 -f "$RELEASE_DIR/db/deploy.sql"
+DB_HOST=$(echo "$PG_URL" | sed -E 's#postgresql://[^@]+@([^:/?]+).*#\1#')
+cd "$RELEASE_DIR/db"
+
+if [ "$DB_HOST" = "localhost" ] || [ "$DB_HOST" = "127.0.0.1" ]; then
+    # Same-server deploy: peer auth via the postgres OS user (password in .env
+    # is often wrong/stale on dev droplets).
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -f deploy.sql
+else
+    MAINT_URL=$(echo "$PG_URL" | sed -E 's#(postgresql://[^/]+)/[^?]*#\1/postgres#')
+    psql "$MAINT_URL" -v ON_ERROR_STOP=1 -f deploy.sql
+fi
 
 PREVIOUS_RELEASE=""
 if [ -L "$CURRENT_LINK" ]; then

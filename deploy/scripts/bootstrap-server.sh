@@ -32,8 +32,11 @@ chown -R deploy:deploy /home/deploy/.ssh
 chmod 700 /home/deploy/.ssh
 chmod 600 /home/deploy/.ssh/authorized_keys
 
-echo "==> Restricted sudo rule for the deploy user"
-echo 'deploy ALL=(root) NOPASSWD: /bin/systemctl restart mc-backend' > /etc/sudoers.d/mc-deploy
+echo "==> Restricted sudo rules for the deploy user"
+cat > /etc/sudoers.d/mc-deploy <<'SUDOERS'
+deploy ALL=(root) NOPASSWD: /bin/systemctl restart mc-backend
+deploy ALL=(postgres) NOPASSWD: /usr/bin/psql
+SUDOERS
 chmod 440 /etc/sudoers.d/mc-deploy
 
 echo "==> /opt/mc layout"
