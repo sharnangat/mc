@@ -71,6 +71,7 @@ pipeline {
         timestamps()
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 45, unit: 'MINUTES')
     }
 
     triggers {
@@ -88,16 +89,12 @@ pipeline {
             }
         }
 
-        stage('Backend: install & sanity check') {
+        stage('Backend: syntax check') {
             steps {
                 dir('backend') {
-                    sh '''
-                        set -eu
-                        python3 -m venv .ci-venv
-                        .ci-venv/bin/pip install --no-cache-dir --quiet --upgrade pip
-                        .ci-venv/bin/pip install --no-cache-dir --quiet -r requirements.txt
-                        .ci-venv/bin/python -m compileall -q app
-                    '''
+                    // Do not pip install here - sentence-transformers alone needs >1GB RAM
+                    // on this droplet and will OOM-kill the subsequent ng build step.
+                    sh 'python3 -m compileall -q app'
                 }
             }
         }
@@ -105,16 +102,17 @@ pipeline {
         stage('Frontend: install & build') {
             steps {
                 dir('frontend') {
-                    sh 'npm ci'
+                    sh 'npm ci --no-audit --no-fund'
                     sh '''
                         set -eu
+                        export NODE_OPTIONS="--max-old-space-size=384"
                         if [ "${SKIP_FRONTEND_TESTS}" != "true" ]; then
                             npx ng test --watch=false --browsers=ChromeHeadless
                         else
                             echo "Skipping frontend unit tests (SKIP_FRONTEND_TESTS=true)"
                         fi
+                        npx ng build --configuration production --base-href /mc/
                     '''
-                    sh 'npx ng build --configuration production --base-href /mc/'
                 }
             }
         }
@@ -195,12 +193,7 @@ pipeline {
             echo "Deployed release ${env.RELEASE_ID} to ${env.DEPLOY_HOST}"
         }
         failure {
-            echo "Deploy failed - check the 'Ship release to target server' stage log. remote-deploy.sh auto-rolls back the backend on a failed health check, but verify manually."
-        }
-        always {
-            dir('backend') {
-                sh 'rm -rf .ci-venv || true'
-            }
+            echo "Deploy failed - check the build log. remote-deploy.sh auto-rolls back the backend on a failed health check, but verify manually."
         }
     }
 }

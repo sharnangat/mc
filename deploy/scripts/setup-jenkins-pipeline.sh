@@ -28,6 +28,19 @@ if ! grep -q 'mc-deploy-ssh' "$JENKINS_HOME/credentials.xml" 2>/dev/null; then
   bash "$SCRIPT_DIR/setup-jenkins-ssh.sh"
 fi
 
+echo "==> Tuning Jenkins JVM for low-memory droplet (1GB RAM)"
+JENKINS_DEFAULTS=/etc/default/jenkins
+if [ -f "$JENKINS_DEFAULTS" ]; then
+  if ! grep -q 'BourneShellScript.HEARTBEAT_CHECK_INTERVAL' "$JENKINS_DEFAULTS"; then
+    sed -i 's|^JAVA_ARGS=.*|JAVA_ARGS="-Djava.awt.headless=true -Xmx256m -XX:+UseSerialGC -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=300"|' "$JENKINS_DEFAULTS"
+    systemctl restart jenkins
+    for _ in $(seq 1 30); do
+      curl -sf -o /dev/null http://127.0.0.1:8080/login && break
+      sleep 2
+    done
+  fi
+fi
+
 echo "==> Ensuring build tools are available for the jenkins user"
 apt-get update -qq
 apt-get install -y -qq git rsync openssh-client postgresql-client python3-venv curl >/dev/null
