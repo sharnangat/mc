@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
@@ -11,14 +10,13 @@ from app.db import get_db
 from app.models.catalog import PricingPlan
 from app.models.consultation import Payment, Query
 from app.models.identity import User
-from app.models.knowledge import DocumentChunk, KnowledgeDocument
+from app.models.knowledge import KnowledgeDocument
 from app.schemas.admin import DocumentType, KnowledgeDocumentOut, KnowledgeDocumentUpdate
 from app.schemas.catalog import PricingPlanOut, PricingPlanUpdate
 from app.schemas.payment import PaymentOut
 from app.schemas.query import QueryOut
 from app.services.deps import require_roles
-from app.services.ingestion import build_chunk_records, build_chunk_records_from_pages
-from app.services.pdf_extraction import extract_document_pages
+from app.services.ingest_pipeline import run_document_ingest
 from app.services.storage import save_upload
 
 logger = logging.getLogger(__name__)
@@ -26,19 +24,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 require_admin = require_roles("admin", "superadmin")
-
-
-def _run_ingest(content_text: str | None, file_path: str | None) -> list[dict]:
-    if content_text is not None and content_text.strip():
-        return build_chunk_records(content_text)
-    if not file_path:
-        raise ValueError("No file path available for this document.")
-    pages = extract_document_pages(file_path)
-    if not pages:
-        raise ValueError(
-            "No extractable text found in the stored file - it may be a scanned/image-only document."
-        )
-    return build_chunk_records_from_pages(pages)
 
 
 @router.post("/documents", response_model=KnowledgeDocumentOut, status_code=status.HTTP_201_CREATED)
@@ -136,47 +121,28 @@ async def ingest_document(
 
     logger.info("Ingest started for %s (%s), source=%s", document.title, document.id, "pasted text" if content_text else "file")
 
-    document.indexing_status = "processing"
-    await db.commit()
-
     try:
-        records = await asyncio.to_thread(_run_ingest, content_text, document.file_path)
+        total = await asyncio.to_thread(
+            run_document_ingest,
+            document.id,
+            document.file_path,
+            content_text,
+        )
     except FileNotFoundError as exc:
-        document.indexing_status = "failed"
-        await db.commit()
         logger.warning("Ingest failed for %s (%s): %s", document.title, document.id, exc)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ValueError as exc:
-        document.indexing_status = "failed"
-        await db.commit()
         logger.warning("Ingest failed for %s (%s): %s", document.title, document.id, exc)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
-        document.indexing_status = "failed"
-        await db.commit()
         logger.exception("Ingest failed for %s (%s)", document.title, document.id)
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ingestion failed while processing the document. Check server logs for details.",
         ) from exc
 
-    if not records:
-        document.indexing_status = "failed"
-        await db.commit()
-        logger.warning("Ingest failed for %s (%s): no content after chunking", document.title, document.id)
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No content to index after chunking.")
-
-    await db.execute(DocumentChunk.__table__.delete().where(DocumentChunk.document_id == document_id))
-
-    for record in records:
-        db.add(DocumentChunk(document_id=document_id, **record))
-
-    document.indexing_status = "indexed"
-    document.last_indexed_at = datetime.now(timezone.utc)
-
-    await db.commit()
     await db.refresh(document)
-    logger.info("Ingest completed for %s (%s): %d chunks indexed", document.title, document.id, len(records))
+    logger.info("Ingest completed for %s (%s): %d chunks indexed", document.title, document.id, total)
     return document
 
 

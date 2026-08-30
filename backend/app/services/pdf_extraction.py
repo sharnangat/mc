@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterator
 from pathlib import Path
 
 import pypdf
@@ -15,30 +18,41 @@ def _clean_text(text: str) -> str:
     return "".join(ch for ch in text if ch == "\n" or ch == "\t" or ord(ch) >= 32).strip()
 
 
-def extract_pdf_pages(file_path: str | Path) -> list[tuple[int, str]]:
-    """Returns (page_number, text) pairs, 1-indexed, skipping pages with no extractable text."""
+def iter_pdf_pages(file_path: str | Path) -> Iterator[tuple[int, str]]:
+    """Yield (page_number, text) pairs one page at a time to limit memory use."""
     resolved = resolve_upload_path(str(file_path))
-    reader = pypdf.PdfReader(resolved, strict=False)
-    pages = []
+    try:
+        reader = pypdf.PdfReader(resolved, strict=False)
+    except (PdfReadError, PdfStreamError) as exc:
+        raise ValueError(
+            "Could not read this PDF - the file may be corrupt, truncated, or password-protected."
+        ) from exc
     for index, page in enumerate(reader.pages):
         text = _clean_text(page.extract_text() or "")
         if text:
-            pages.append((index + 1, text))
-    return pages
+            yield (index + 1, text)
 
 
-def extract_document_pages(file_path: str) -> list[tuple[int, str]]:
-    """Extracts (page_number, text) pairs for a stored document, dispatching on file extension."""
+def extract_pdf_pages(file_path: str | Path) -> list[tuple[int, str]]:
+    """Returns (page_number, text) pairs, 1-indexed, skipping pages with no extractable text."""
+    return list(iter_pdf_pages(file_path))
+
+
+def iter_document_pages(file_path: str) -> Iterator[tuple[int, str]]:
+    """Yield (page_number, text) pairs for a stored document."""
     resolved = resolve_upload_path(file_path)
     suffix = resolved.suffix.lower()
     if suffix == ".pdf":
-        try:
-            return extract_pdf_pages(resolved)
-        except (PdfReadError, PdfStreamError) as exc:
-            raise ValueError(
-                "Could not read this PDF - the file may be corrupt, truncated, or password-protected."
-            ) from exc
+        yield from iter_pdf_pages(resolved)
+        return
     if suffix in (".txt", ".md"):
         text = _clean_text(resolved.read_text(encoding="utf-8", errors="replace"))
-        return [(1, text)] if text else []
+        if text:
+            yield (1, text)
+        return
     raise ValueError(f"No text extractor available for file type '{suffix}'")
+
+
+def extract_document_pages(file_path: str) -> list[tuple[int, str]]:
+    """Extracts all (page_number, text) pairs for a stored document."""
+    return list(iter_document_pages(file_path))
