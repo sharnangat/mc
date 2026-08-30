@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -25,6 +26,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 require_admin = require_roles("admin", "superadmin")
+
+
+def _run_ingest(content_text: str | None, file_path: str | None) -> list[dict]:
+    if content_text is not None and content_text.strip():
+        return build_chunk_records(content_text)
+    if not file_path:
+        raise ValueError("No file path available for this document.")
+    pages = extract_document_pages(file_path)
+    if not pages:
+        raise ValueError(
+            "No extractable text found in the stored file - it may be a scanned/image-only document."
+        )
+    return build_chunk_records_from_pages(pages)
 
 
 @router.post("/documents", response_model=KnowledgeDocumentOut, status_code=status.HTTP_201_CREATED)
@@ -122,23 +136,33 @@ async def ingest_document(
 
     logger.info("Ingest started for %s (%s), source=%s", document.title, document.id, "pasted text" if content_text else "file")
 
-    if content_text is not None and content_text.strip():
-        records = build_chunk_records(content_text)
-    else:
-        try:
-            pages = extract_document_pages(document.file_path)
-        except ValueError as exc:
-            logger.warning("Ingest failed for %s (%s): %s", document.title, document.id, exc)
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-        if not pages:
-            logger.warning("Ingest failed for %s (%s): no extractable text", document.title, document.id)
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="No extractable text found in the stored file - it may be a scanned/image-only document.",
-            )
-        records = build_chunk_records_from_pages(pages)
+    document.indexing_status = "processing"
+    await db.commit()
+
+    try:
+        records = await asyncio.to_thread(_run_ingest, content_text, document.file_path)
+    except FileNotFoundError as exc:
+        document.indexing_status = "failed"
+        await db.commit()
+        logger.warning("Ingest failed for %s (%s): %s", document.title, document.id, exc)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ValueError as exc:
+        document.indexing_status = "failed"
+        await db.commit()
+        logger.warning("Ingest failed for %s (%s): %s", document.title, document.id, exc)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        document.indexing_status = "failed"
+        await db.commit()
+        logger.exception("Ingest failed for %s (%s)", document.title, document.id)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ingestion failed while processing the document. Check server logs for details.",
+        ) from exc
 
     if not records:
+        document.indexing_status = "failed"
+        await db.commit()
         logger.warning("Ingest failed for %s (%s): no content after chunking", document.title, document.id)
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No content to index after chunking.")
 
