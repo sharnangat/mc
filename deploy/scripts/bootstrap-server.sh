@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs ON THE TARGET DROPLET as root (piped over SSH by the Jenkins
 # "Provision server" stage, right after deploy/systemd/mc-backend.service and
-# deploy/nginx/mc.conf have already been rsynced into place). One-time
+# deploy/nginx/nginx-all.conf have already been rsynced into place). One-time
 # machine setup: packages, service accounts, sudoers rule, /opt/mc layout,
 # enabling the systemd unit and nginx site. Safe to re-run - every step is
 # idempotent, so running this against an already-bootstrapped server just
@@ -47,9 +47,15 @@ echo "==> Enabling the backend service"
 systemctl daemon-reload
 systemctl enable mc-backend >/dev/null
 
-echo "==> Enabling the nginx site"
-ln -sf /etc/nginx/sites-available/mc.conf /etc/nginx/sites-enabled/mc.conf
-rm -f /etc/nginx/sites-enabled/default
+echo "==> Enabling the unified nginx site"
+NGINX_ALL_CONF="${NGINX_ALL_CONF:-/root/deploy/nginx/nginx-all.conf}"
+if [ ! -f "$NGINX_ALL_CONF" ]; then
+  echo "ERROR: unified nginx config not found at $NGINX_ALL_CONF" >&2
+  exit 1
+fi
+install -m 644 "$NGINX_ALL_CONF" /etc/nginx/sites-available/all-apps
+ln -sf /etc/nginx/sites-available/all-apps /etc/nginx/sites-enabled/all-apps
+rm -f /etc/nginx/sites-enabled/{default,scm,mc,360feedback}
 nginx -t
 systemctl reload nginx
 

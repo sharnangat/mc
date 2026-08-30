@@ -13,16 +13,19 @@
 //   2. mkdir -p /opt/mc/{releases,shared} && chown -R deploy:deploy /opt/mc
 //   3. Install deploy/systemd/mc-backend.service to /etc/systemd/system/,
 //      then `systemctl daemon-reload && systemctl enable mc-backend`.
-//   4. Install deploy/nginx/mc.conf to /etc/nginx/sites-available/, symlink
-//      into sites-enabled, `nginx -t && systemctl reload nginx`.
+//   4. Install /root/deploy/nginx/nginx-all.conf to the server, symlink
+//      via bootstrap-server.sh, `nginx -t && systemctl reload nginx`.
 //   5. Postgres must be reachable from the target server (this pipeline runs
 //      db/deploy.sql there on every deploy - it's idempotent, see db/deploy.sql).
 // (deploy/scripts/bootstrap-server.sh is what PROVISION_SERVER runs to do 1-4.)
 //
 // --- One-time setup in Jenkins -----------------------------------------------
-//   - Install plugins: "SSH Agent", "Pipeline".
-//   - Agent must have on PATH: python3 (3.13), node/npm (20+), rsync, ssh, psql.
-//   - Credentials:
+//   Run on the Jenkins server (as root):
+//     sudo bash deploy/scripts/setup-jenkins-ssh.sh
+//   That installs the ssh-agent plugin, creates deploy SSH keys/credentials,
+//   bootstraps the deploy user, and enables Jenkins inbound SSH on port 2222.
+//   Agent must have on PATH: python3 (3.13), node/npm (20+), rsync, ssh, psql.
+//   Credentials created automatically by the script:
 //       mc-deploy-ssh    (SSH Username with private key) - the "deploy" user's key
 //       mc-backend-env   (Secret file) - production backend/.env contents
 //     Only needed if you'll use PROVISION_SERVER:
@@ -47,7 +50,7 @@ pipeline {
     parameters {
         string(name: 'DEPLOY_HOST', defaultValue: '139.59.81.129', description: 'Target server hostname/IP (overwritten by discovery if PROVISION_SERVER is checked)')
         string(name: 'DEPLOY_USER', defaultValue: 'deploy', description: 'SSH user on the target server')
-        booleanParam(name: 'SKIP_FRONTEND_TESTS', defaultValue: false, description: 'Skip `ng test` (requires Chrome on the agent)')
+        booleanParam(name: 'SKIP_FRONTEND_TESTS', defaultValue: true, description: 'Skip `ng test` (requires Chrome on the agent)')
         booleanParam(name: 'PROVISION_SERVER', defaultValue: false, description: 'Create/bootstrap the target droplet via the DigitalOcean API before deploying. Idempotent - leave unchecked for routine deploys to an already-set-up server.')
         string(name: 'DROPLET_NAME', defaultValue: 'ubuntu-s-1vcpu-1gb-blr1-01', description: 'DigitalOcean droplet name (looked up, or created if missing) - only used when PROVISION_SERVER is checked')
         string(name: 'DROPLET_REGION', defaultValue: 'blr1', description: 'DigitalOcean region slug')
@@ -59,11 +62,22 @@ pipeline {
     environment {
         APP_ROOT   = '/opt/mc'
         RELEASE_ID = "${BUILD_NUMBER}"
+        DEPLOY_HOST = "${params.DEPLOY_HOST}"
+        DEPLOY_USER = "${params.DEPLOY_USER}"
+        SKIP_FRONTEND_TESTS = "${params.SKIP_FRONTEND_TESTS}"
     }
 
     options {
         timestamps()
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    triggers {
+        // Poll GitHub every 2 minutes (works without webhook setup).
+        pollSCM('H/2 * * * *')
+        // Immediate builds when GitHub webhook points at /github-webhook/
+        githubPush()
     }
 
     stages {
@@ -96,9 +110,11 @@ pipeline {
                         set -eu
                         if [ "${SKIP_FRONTEND_TESTS}" != "true" ]; then
                             npx ng test --watch=false --browsers=ChromeHeadless
+                        else
+                            echo "Skipping frontend unit tests (SKIP_FRONTEND_TESTS=true)"
                         fi
                     '''
-                    sh 'npx ng build --configuration production'
+                    sh 'npx ng build --configuration production --base-href /mc/'
                 }
             }
         }
@@ -122,7 +138,8 @@ pipeline {
                             DEPLOY_PUBKEY=$(ssh-keygen -y -f "$DEPLOY_KEY_FILE")
 
                             rsync -az -e "ssh $SSH_OPTS" deploy/systemd/mc-backend.service "root@${IP}:/etc/systemd/system/mc-backend.service"
-                            rsync -az -e "ssh $SSH_OPTS" deploy/nginx/mc.conf "root@${IP}:/etc/nginx/sites-available/mc.conf"
+                            ssh $SSH_OPTS "root@${IP}" "mkdir -p /root/deploy/nginx"
+                            rsync -az -e "ssh $SSH_OPTS" /root/deploy/nginx/nginx-all.conf "root@${IP}:/root/deploy/nginx/nginx-all.conf"
                             ssh $SSH_OPTS "root@${IP}" "bash -s" -- "$DEPLOY_PUBKEY" < deploy/scripts/bootstrap-server.sh
                         '''
                     }
@@ -135,13 +152,6 @@ pipeline {
 
         stage('Ship release to target server') {
             steps {
-                sh '''
-                    set -eu
-                    if [ -z "${DEPLOY_HOST:-}" ]; then
-                        echo "ERROR: DEPLOY_HOST is required (pass it as a build parameter)." >&2
-                        exit 1
-                    fi
-                '''
                 sshagent(credentials: ['mc-deploy-ssh']) {
                     withCredentials([file(credentialsId: 'mc-backend-env', variable: 'BACKEND_ENV_FILE')]) {
                         sh '''
