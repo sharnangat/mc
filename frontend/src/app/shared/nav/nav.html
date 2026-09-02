@@ -1,32 +1,85 @@
-<nav class="nav">
-  <a routerLink="/" class="brand">
-    <span class="brand-mark">MC</span>
-    Metallurgical Consultation
+<nav
+  class="sticky top-0 z-20 flex items-center justify-between gap-4 border-b-2 border-brand-600 bg-[var(--color-ink)] px-5 py-3 sm:px-8"
+>
+  <a routerLink="/" class="flex items-center gap-2.5 text-[15px] font-bold tracking-tight text-white no-underline">
+    <span
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-brand-400/40 bg-brand-500/15 font-mono text-xs font-bold text-brand-300"
+      >MC</span
+    >
+    <span class="hidden sm:inline">Metallurgical Consultation</span>
   </a>
 
   @if (auth.isLoggedIn()) {
-    <div class="links">
-      <a routerLink="/queries" routerLinkActive="active">My Queries</a>
-      <a routerLink="/queries/new" routerLinkActive="active">New Query</a>
-      <a routerLink="/chat" routerLinkActive="active">AI Chat</a>
+    <div class="flex flex-wrap items-center gap-1">
+      <a
+        routerLink="/queries"
+        routerLinkActive="!bg-white/10 !text-brand-300"
+        class="rounded-sm px-3 py-2 text-sm font-semibold text-slate-300 no-underline transition hover:bg-white/5 hover:text-white"
+        >My Queries</a
+      >
+      <a
+        routerLink="/queries/new"
+        routerLinkActive="!bg-white/10 !text-brand-300"
+        class="rounded-sm px-3 py-2 text-sm font-semibold text-slate-300 no-underline transition hover:bg-white/5 hover:text-white"
+        >New Query</a
+      >
+      <a
+        routerLink="/chat"
+        routerLinkActive="!bg-white/10 !text-brand-300"
+        class="rounded-sm px-3 py-2 text-sm font-semibold text-slate-300 no-underline transition hover:bg-white/5 hover:text-white"
+        >AI Chat</a
+      >
       @if (auth.hasRole('expert', 'admin', 'superadmin')) {
-        <a routerLink="/expert" routerLinkActive="active">Expert Dashboard</a>
+        <a
+          routerLink="/expert"
+          routerLinkActive="!bg-white/10 !text-brand-300"
+          class="rounded-sm px-3 py-2 text-sm font-semibold text-slate-300 no-underline transition hover:bg-white/5 hover:text-white"
+          >Expert Dashboard</a
+        >
       }
       @if (auth.hasRole('admin', 'superadmin')) {
-        <a routerLink="/admin/documents" routerLinkActive="active">Documents</a>
-        <a routerLink="/admin/pricing" routerLinkActive="active">Pricing</a>
+        <a
+          routerLink="/admin/documents"
+          routerLinkActive="!bg-white/10 !text-brand-300"
+          class="rounded-sm px-3 py-2 text-sm font-semibold text-slate-300 no-underline transition hover:bg-white/5 hover:text-white"
+          >Documents</a
+        >
+        <a
+          routerLink="/admin/pricing"
+          routerLinkActive="!bg-white/10 !text-brand-300"
+          class="rounded-sm px-3 py-2 text-sm font-semibold text-slate-300 no-underline transition hover:bg-white/5 hover:text-white"
+          >Pricing</a
+        >
       }
-      <span class="nav-divider"></span>
-      <div class="user">
-        <span class="user-avatar">{{ auth.currentUser()?.full_name?.charAt(0) }}</span>
-        <span class="user-name">{{ auth.currentUser()?.full_name }}</span>
+      <span class="mx-2 hidden h-6 w-px bg-white/15 sm:block"></span>
+      <div class="flex items-center gap-2 pl-1">
+        <span
+          class="flex h-7 w-7 items-center justify-center rounded-sm border border-brand-400/40 bg-brand-500/15 font-mono text-xs font-bold text-brand-300"
+          >{{ auth.currentUser()?.full_name?.charAt(0) }}</span
+        >
+        <span class="hidden text-sm font-semibold text-slate-200 md:inline">{{ auth.currentUser()?.full_name }}</span>
       </div>
-      <button type="button" (click)="logout()">Log out</button>
+      <button
+        type="button"
+        (click)="logout()"
+        class="ml-1 cursor-pointer rounded-sm border border-white/20 bg-transparent px-3 py-1.5 text-[13px] font-semibold uppercase tracking-wide text-slate-300 transition hover:border-white/40 hover:text-white"
+      >
+        Log out
+      </button>
     </div>
   } @else {
-    <div class="links">
-      <a routerLink="/auth/login" routerLinkActive="active">Log in</a>
-      <a routerLink="/auth/register" routerLinkActive="active">Register</a>
+    <div class="flex items-center gap-2">
+      <a
+        routerLink="/auth/login"
+        routerLinkActive="!text-brand-300"
+        class="rounded-sm px-3 py-2 text-sm font-semibold text-slate-300 no-underline hover:text-white"
+        >Log in</a
+      >
+      <a
+        routerLink="/auth/register"
+        class="rounded-sm bg-brand-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white no-underline shadow-sm transition hover:bg-brand-700"
+        >Register</a
+      >
     </div>
   }
 </nav>

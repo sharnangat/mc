@@ -24,7 +24,19 @@
             <td>{{ plan.name }}</td>
             <td class="meta">{{ plan.description }}</td>
             <td>
-              <input type="number" min="0" step="1" class="input-price" [(ngModel)]="drafts[plan.id]" [name]="'price-' + plan.id" />
+              <div class="relative inline-block">
+                <span class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[13px] font-semibold text-slate-400"
+                  >₹</span
+                >
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input-price font-mono !pl-6"
+                  [(ngModel)]="drafts[plan.id]"
+                  [name]="'price-' + plan.id"
+                />
+              </div>
             </td>
             <td>
               <button

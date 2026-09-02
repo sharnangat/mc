@@ -1,6 +1,6 @@
 <div class="card">
   <div class="page-header">
-    <h2>My Consultations</h2>
+    <h2>My Consultations @if (queries().length > 0) {<span class="count-chip">{{ queries().length }}</span>}</h2>
     <a class="btn" routerLink="/queries/new">New Query</a>
   </div>
 
@@ -27,7 +27,7 @@
       <tbody>
         @for (q of queries(); track q.id) {
           <tr>
-            <td><a [routerLink]="['/queries', q.id]">{{ q.query_code || q.id.slice(0, 8) }}</a></td>
+            <td><a class="font-mono" [routerLink]="['/queries', q.id]">{{ q.query_code || q.id.slice(0, 8) }}</a></td>
             <td>{{ q.question_text.slice(0, 60) }}{{ q.question_text.length > 60 ? '...' : '' }}</td>
             <td><span class="badge" [class]="'status-' + q.status">{{ q.status }}</span></td>
             <td class="meta">{{ q.created_at | date: 'medium' }}</td>

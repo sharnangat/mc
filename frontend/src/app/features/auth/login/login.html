@@ -1,37 +1,60 @@
-<div class="auth-shell">
-  <div class="card auth-card">
-    <h2>Log in</h2>
-    <p class="subtitle">Welcome back. Sign in to continue your consultations.</p>
-
-    <form (ngSubmit)="submit()">
-      <div class="field">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" [(ngModel)]="email" required autocomplete="username" />
+<div class="flex min-h-[calc(100vh-64px)] items-center justify-center bg-gradient-to-b from-slate-50 to-white px-4 py-10">
+  <div class="grid w-full max-w-4xl overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl md:grid-cols-2">
+    <div
+      class="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-[var(--color-ink)] p-10 text-white md:flex"
+    >
+      <div class="blueprint-grid pointer-events-none absolute inset-0 text-white"></div>
+      <div class="relative z-10">
+        <span
+          class="flex h-10 w-10 items-center justify-center rounded-sm border border-brand-300/40 bg-white/10 font-mono text-sm font-bold"
+          >MC</span
+        >
+        <h1 class="mt-8 text-2xl font-bold leading-snug">Expert-verified metallurgical answers, on demand.</h1>
+        <p class="mt-3 text-sm text-white/75">
+          AI-assisted analysis, reviewed by qualified metallurgists before it reaches you.
+        </p>
       </div>
+      <ul class="relative z-10 space-y-3 font-mono text-[13px] text-white/80">
+        <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 bg-brand-300"></span>Fast turnaround consultations</li>
+        <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 bg-brand-300"></span>Reviewed by certified experts</li>
+        <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 bg-brand-300"></span>Full history &amp; documentation</li>
+      </ul>
+    </div>
 
-      <div class="field">
-        <label for="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          [(ngModel)]="password"
-          required
-          autocomplete="current-password"
-        />
-      </div>
+    <div class="p-8 sm:p-10">
+      <h2 class="!mb-0 text-xl font-bold text-slate-900">Log in</h2>
+      <p class="subtitle !mt-1">Welcome back. Sign in to continue your consultations.</p>
 
-      @if (errorMessage()) {
-        <p class="error">{{ errorMessage() }}</p>
-      }
+      <form (ngSubmit)="submit()" class="mt-6">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" [(ngModel)]="email" required autocomplete="username" />
+        </div>
 
-      <div class="btn-row">
-        <button type="submit" class="btn" [disabled]="submitting()">
-          {{ submitting() ? 'Logging in...' : 'Log in' }}
-        </button>
-      </div>
-    </form>
+        <div class="field">
+          <label for="password">Password</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            [(ngModel)]="password"
+            required
+            autocomplete="current-password"
+          />
+        </div>
 
-    <p class="auth-footer">No account? <a routerLink="/auth/register">Register here</a></p>
+        @if (errorMessage()) {
+          <p class="error">{{ errorMessage() }}</p>
+        }
+
+        <div class="btn-row">
+          <button type="submit" class="btn w-full justify-center" [disabled]="submitting()">
+            {{ submitting() ? 'Logging in...' : 'Log in' }}
+          </button>
+        </div>
+      </form>
+
+      <p class="auth-footer">No account? <a routerLink="/auth/register">Register here</a></p>
+    </div>
   </div>
 </div>

@@ -1,6 +1,6 @@
 <div class="card">
   <div class="page-header">
-    <h2>Expert Review Queue</h2>
+    <h2>Expert Review Queue @if (queries().length > 0) {<span class="count-chip">{{ queries().length }}</span>}</h2>
   </div>
 
   @if (loading()) {
@@ -26,7 +26,7 @@
       <tbody>
         @for (q of queries(); track q.id) {
           <tr>
-            <td><a [routerLink]="['/expert', q.id]">{{ q.query_code || q.id.slice(0, 8) }}</a></td>
+            <td><a class="font-mono" [routerLink]="['/expert', q.id]">{{ q.query_code || q.id.slice(0, 8) }}</a></td>
             <td>{{ q.question_text.slice(0, 60) }}{{ q.question_text.length > 60 ? '...' : '' }}</td>
             <td class="capitalize">{{ q.priority }}</td>
             <td><span class="badge" [class]="'status-' + q.status">{{ q.status }}</span></td>

@@ -58,7 +58,7 @@
 
 <div class="card">
   <div class="page-header">
-    <h2>Documents</h2>
+    <h2>Documents @if (documents().length > 0) {<span class="count-chip">{{ documents().length }}</span>}</h2>
   </div>
 
   @if (loading()) {
@@ -87,11 +87,22 @@
         @for (doc of documents(); track doc.id) {
           <tr>
             <td>{{ doc.title }}</td>
-            <td>{{ doc.document_type }}</td>
-            <td>{{ doc.licence_status }}</td>
-            <td>{{ doc.indexing_status }}</td>
+            <td class="font-mono text-xs uppercase">{{ doc.document_type }}</td>
+            <td class="font-mono text-xs uppercase">{{ doc.licence_status }}</td>
             <td>
-              <input type="checkbox" [checked]="doc.is_enabled_for_ai" (change)="toggleEnabled(doc)" />
+              <span
+                class="font-mono text-xs font-semibold uppercase"
+                [class.text-emerald-700]="doc.indexing_status === 'indexed'"
+                [class.text-red-700]="doc.indexing_status === 'failed'"
+                [class.text-amber-700]="doc.indexing_status !== 'indexed' && doc.indexing_status !== 'failed'"
+                >{{ doc.indexing_status }}</span
+              >
+            </td>
+            <td>
+              <label class="switch">
+                <input type="checkbox" [checked]="doc.is_enabled_for_ai" (change)="toggleEnabled(doc)" />
+                <span class="switch-track"></span>
+              </label>
             </td>
             <td class="meta">{{ doc.uploaded_at | date: 'short' }}</td>
             <td>

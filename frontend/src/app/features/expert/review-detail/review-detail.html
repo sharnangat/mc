@@ -8,7 +8,7 @@
 } @else if (detail(); as d) {
   <div class="card">
     <div class="page-header">
-      <h2>{{ d.query.query_code }}</h2>
+      <h2 class="font-mono">{{ d.query.query_code }}</h2>
       <span class="badge" [class]="'status-' + d.query.status">{{ d.query.status }}</span>
     </div>
     <p class="pre-wrap">{{ d.query.question_text }}</p>

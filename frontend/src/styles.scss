@@ -1,18 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/*
+ * Wrapped in Tailwind's "base" cascade layer so utility classes used
+ * inline in templates (e.g. text-white) reliably win over these
+ * global element/component rules, regardless of selector specificity.
+ */
+@layer base {
 
 :root {
-  --color-bg: #f4f6fa;
+  --color-bg: #eef2f6;
   --color-surface: #ffffff;
-  --color-surface-alt: #f8fafc;
-  --color-border: #e2e5eb;
-  --color-border-strong: #cbd2e0;
-  --color-text: #1a2233;
-  --color-muted: #667085;
+  --color-surface-alt: #f1f5f9;
+  --color-border: #d7dee6;
+  --color-border-strong: #b2c0cd;
+  --color-text: #16283d;
+  --color-muted: #5b7086;
 
-  --color-primary: #1d4ed8;
-  --color-primary-hover: #1839ab;
-  --color-primary-soft: #eaf0fe;
+  /* Blueprint cyan - the engineering-drawing accent color. */
+  --color-primary: #0e7490;
+  --color-primary-hover: #155e75;
+  --color-primary-soft: #e3f6fa;
   --color-primary-contrast: #ffffff;
+
+  /* Deep navy for the nav bar / hero panels - the "blueprint sheet" tone. */
+  --color-ink: #0b1b2b;
+  --color-ink-2: #16324a;
 
   --color-danger: #b91c1c;
   --color-danger-soft: #fdecec;
@@ -21,15 +33,16 @@
   --color-warning: #b45309;
   --color-warning-soft: #fef3c7;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
 
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
-  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12);
+  --shadow-sm: 0 1px 2px rgba(11, 27, 43, 0.07);
+  --shadow-md: 0 4px 12px rgba(11, 27, 43, 0.1);
+  --shadow-lg: 0 12px 32px rgba(11, 27, 43, 0.16);
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 * {
@@ -46,15 +59,34 @@ body {
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.5;
-  background: var(--color-bg);
+  background:
+    linear-gradient(rgba(11, 27, 43, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 27, 43, 0.035) 1px, transparent 1px),
+    radial-gradient(1100px 480px at 100% -10%, rgba(14, 116, 144, 0.07), transparent 60%),
+    var(--color-bg);
+  background-size:
+    28px 28px,
+    28px 28px,
+    auto,
+    auto;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
 }
 
+/* Faint grid overlay for dark panels (nav, auth hero). Line color inherits
+   from the element's own `color`, so set a light `color` before applying. */
+.blueprint-grid {
+  background-image:
+    linear-gradient(currentColor 1px, transparent 1px),
+    linear-gradient(90deg, currentColor 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.12;
+}
+
 main {
-  max-width: 1040px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  padding: 2.25rem 1.5rem 4rem;
 }
 
 a {
@@ -116,9 +148,9 @@ p {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  padding: 1.5rem;
+  padding: 1.75rem;
   margin-bottom: 1.25rem;
-  transition: box-shadow 0.15s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .page-header {
@@ -126,7 +158,9 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--color-border);
 
   h2,
   h3 {
@@ -146,7 +180,8 @@ p {
 }
 
 .meta {
-  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
   color: var(--color-muted);
 }
 
@@ -234,18 +269,21 @@ input[type='checkbox'] {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   padding: 0.6rem 1.15rem;
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
   text-decoration: none;
-  background: var(--color-primary);
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: var(--color-primary-contrast);
   box-shadow: var(--shadow-sm);
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
 
   &:hover:not(:disabled) {
     background: var(--color-primary-hover);
+    box-shadow: var(--shadow-md);
   }
 
   &:active:not(:disabled) {
@@ -337,41 +375,119 @@ p.error {
   border-color: rgba(180, 83, 9, 0.2);
 }
 
+.alert-info {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-color: rgba(14, 116, 144, 0.18);
+}
+
+.count-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-left: 0.6rem;
+  vertical-align: middle;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Toggle switch                                                          */
+/* ---------------------------------------------------------------------- */
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  .switch-track {
+    position: absolute;
+    inset: 0;
+    background: var(--color-border-strong);
+    border-radius: 999px;
+    transition: background 0.15s ease;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.15s ease;
+    }
+  }
+
+  input:checked ~ .switch-track {
+    background: var(--color-primary);
+
+    &::before {
+      transform: translateX(16px);
+    }
+  }
+
+  input:focus-visible ~ .switch-track {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
 .badge {
   display: inline-block;
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  text-transform: capitalize;
-  background: var(--color-border);
-  color: var(--color-text);
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--color-muted);
+  border: 1px solid var(--color-border-strong);
   white-space: nowrap;
 
   &.status-pending_payment,
   &.status-more_info_requested {
-    background: var(--color-warning-soft);
     color: var(--color-warning);
+    border-color: currentColor;
   }
 
   &.status-paid,
   &.status-ai_processing,
   &.status-draft_ready,
   &.status-under_expert_review {
-    background: var(--color-primary-soft);
     color: var(--color-primary);
+    border-color: currentColor;
   }
 
   &.status-approved,
   &.status-sent {
-    background: var(--color-success-soft);
     color: var(--color-success);
+    border-color: currentColor;
   }
 
   &.status-rejected {
-    background: var(--color-danger-soft);
     color: var(--color-danger);
+    border-color: currentColor;
   }
 }
 
@@ -455,17 +571,21 @@ table {
   th,
   td {
     text-align: left;
-    padding: 0.75rem 0.6rem;
+    padding: 0.8rem 0.75rem;
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
   }
 
   th {
     color: var(--color-muted);
+    font-family: var(--font-mono);
     font-weight: 600;
-    font-size: 0.78rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.06em;
+    background: var(--color-surface-alt);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border-strong);
   }
 
   tbody tr {
@@ -514,23 +634,12 @@ table {
 }
 
 .input-price {
-  width: 100px;
+  width: 128px;
 }
 
 /* ---------------------------------------------------------------------- */
 /* Auth pages                                                              */
 /* ---------------------------------------------------------------------- */
-
-.auth-shell {
-  display: flex;
-  justify-content: center;
-  padding-top: 2rem;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 420px;
-}
 
 .auth-footer {
   margin: 1.1rem 0 0;
@@ -546,3 +655,5 @@ table {
     }
   }
 }
+
+} // @layer base
