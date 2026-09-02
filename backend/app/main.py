@@ -1,9 +1,19 @@
+import asyncio
 import logging
+import sys
 import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+if sys.platform == "win32":
+    # asyncpg is not fully compatible with Windows' default ProactorEventLoop -
+    # pool_pre_ping connection checks (db.py) intermittently crash with
+    # "AttributeError: 'NoneType' object has no attribute 'send'" when a pooled
+    # connection is reused. SelectorEventLoop doesn't have this issue and is
+    # otherwise equivalent for a plain TCP-based ASGI app like this one.
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from app.logging_config import configure_logging
 
