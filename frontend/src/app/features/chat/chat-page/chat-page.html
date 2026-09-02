@@ -1,6 +1,6 @@
 <div class="card chat-card">
   <div class="print-header">
-    <h1>Metallurgical Consultation &mdash; AI Chat Transcript</h1>
+    <h1>Metallurgical Consultation &mdash; {{ printSingleIndex() !== null ? 'Question & Answer Export' : 'AI Chat Transcript' }}</h1>
     <p class="meta">Exported {{ printedAt | date: 'medium' }}</p>
   </div>
 
@@ -38,53 +38,74 @@
       <p class="empty">Ask something to get started, e.g. "What are beach marks on a fatigue fracture surface?"</p>
     }
 
-    @for (turn of turns(); track $index) {
-      @if (turn.role === 'user') {
+    @for (pair of pairs(); track $index; let pairIndex = $index) {
+      <div class="qa-pair" [class.print-hide]="isHiddenForSinglePrint(pairIndex)">
         <div class="turn turn-user">
           <span class="turn-label">You</span>
-          <div class="bubble user">{{ turn.text }}</div>
+          <div class="bubble user">{{ pair.question.text }}</div>
         </div>
-      } @else {
-        <div class="turn turn-ai">
-          <span class="turn-label">AI Assistant</span>
-          <div class="bubble ai" [class.error]="turn.error">
-            @if (turn.response?.insufficient_information) {
-              <p class="insufficient">The knowledge base doesn't have enough information for this one.</p>
-            }
-            <p class="pre-wrap">{{ turn.text }}</p>
 
-            @if (turn.response && !turn.response.insufficient_information && turn.response.sources.length > 0) {
-              <details class="sources print-hide">
-                <summary>{{ turn.response.sources.length }} source(s)</summary>
-                <ul>
-                  @for (s of turn.response.sources; track $index) {
-                    <li>
-                      <strong>Source {{ $index + 1 }}</strong>
-                      <div class="cited">{{ s.cited_text }}</div>
-                    </li>
-                  }
-                </ul>
-              </details>
+        @if (pair.answer; as answer) {
+          <div class="turn turn-ai">
+            <div class="turn-label-row">
+              <span class="turn-label">AI Assistant</span>
+              <button
+                type="button"
+                class="turn-download print-hide"
+                (click)="downloadTurnPdf(pairIndex)"
+                aria-label="Download this question and answer as PDF"
+                title="Download this Q&A as PDF"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div class="bubble ai" [class.error]="answer.error">
+              @if (answer.response?.insufficient_information) {
+                <p class="insufficient">The knowledge base doesn't have enough information for this one.</p>
+              }
+              <p class="pre-wrap">{{ answer.text }}</p>
 
-              <div class="sources print-only">
-                <p class="sources-title">{{ turn.response.sources.length }} source(s)</p>
-                <ul>
-                  @for (s of turn.response.sources; track $index) {
-                    <li>
-                      <strong>Source {{ $index + 1 }}</strong>
-                      <div class="cited">{{ s.cited_text }}</div>
-                    </li>
-                  }
-                </ul>
-              </div>
-            }
+              @if (answer.response && !answer.response.insufficient_information && answer.response.sources.length > 0) {
+                <details class="sources print-hide">
+                  <summary>{{ answer.response.sources.length }} source(s)</summary>
+                  <ul>
+                    @for (s of answer.response.sources; track $index) {
+                      <li>
+                        <strong>Source {{ $index + 1 }}</strong>
+                        <div class="cited">{{ s.cited_text }}</div>
+                      </li>
+                    }
+                  </ul>
+                </details>
+
+                <div class="sources print-only">
+                  <p class="sources-title">{{ answer.response.sources.length }} source(s)</p>
+                  <ul>
+                    @for (s of answer.response.sources; track $index) {
+                      <li>
+                        <strong>Source {{ $index + 1 }}</strong>
+                        <div class="cited">{{ s.cited_text }}</div>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+            </div>
           </div>
-        </div>
-      }
+        }
+      </div>
     }
 
     @if (sending()) {
-      <div class="turn turn-ai">
+      <div class="turn turn-ai" [class.print-hide]="printSingleIndex() !== null">
         <span class="turn-label">AI Assistant</span>
         <div class="bubble ai pending">Thinking...</div>
       </div>

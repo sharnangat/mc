@@ -52,6 +52,12 @@
 
   .turn {
     max-width: 100%;
+  }
+
+  // Keep a question and its answer on the same page together - avoid on the
+  // individual turn wasn't enough since a break could still land *between*
+  // the question and answer turns (two separate siblings).
+  .qa-pair {
     break-inside: avoid;
   }
 
@@ -107,6 +113,12 @@
   margin-top: 2rem;
 }
 
+.qa-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .turn {
   display: flex;
   flex-direction: column;
@@ -131,6 +143,37 @@
   text-transform: uppercase;
   color: var(--color-muted);
   padding: 0 0.15rem;
+}
+
+.turn-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.turn-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s ease, color 0.1s ease, background 0.1s ease;
+
+  &:hover {
+    color: var(--color-primary);
+    background: var(--color-primary-soft);
+  }
+}
+
+.turn-ai:hover .turn-download,
+.turn-download:focus-visible {
+  opacity: 1;
 }
 
 .bubble {
