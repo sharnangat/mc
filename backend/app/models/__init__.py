@@ -1,4 +1,5 @@
 from app.models.catalog import ConsultationCategory, PricingPlan
+from app.models.chat import ChatMessage
 from app.models.consultation import (
     AIAnswer,
     AIAnswerSource,
@@ -15,6 +16,7 @@ from app.models.system import AuditLog, PromptTemplate, SystemSetting
 __all__ = [
     "ConsultationCategory",
     "PricingPlan",
+    "ChatMessage",
     "AIAnswer",
     "AIAnswerSource",
     "ExpertReview",

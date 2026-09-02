@@ -177,6 +177,13 @@ export interface ChatResponse {
   sources: ChatSource[];
 }
 
+export interface ChatMessage {
+  id: string;
+  question: string;
+  answer: ChatResponse;
+  created_at: string;
+}
+
 export interface KnowledgeDocument {
   id: string;
   title: string;

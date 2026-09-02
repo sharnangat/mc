@@ -1,4 +1,5 @@
-import { Component, ElementRef, signal, ViewChild } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ChatResponse } from '../../../core/models';
@@ -13,18 +14,37 @@ interface ChatTurn {
 
 @Component({
   selector: 'app-chat-page',
-  imports: [FormsModule],
+  imports: [FormsModule, DatePipe],
   templateUrl: './chat-page.html',
   styleUrl: './chat-page.scss',
 })
-export class ChatPage {
+export class ChatPage implements OnInit {
   readonly turns = signal<ChatTurn[]>([]);
   readonly sending = signal(false);
+  readonly loadingHistory = signal(true);
+  readonly printedAt = new Date();
   draft = '';
 
   @ViewChild('scrollAnchor') private scrollAnchor?: ElementRef<HTMLElement>;
 
   constructor(private readonly chat: ChatService) {}
+
+  ngOnInit(): void {
+    this.chat.history().subscribe({
+      next: (messages) => {
+        const historyTurns = messages.flatMap((m): ChatTurn[] => [
+          { role: 'user', text: m.question },
+          { role: 'ai', text: m.answer.technical_conclusion, response: m.answer },
+        ]);
+        this.turns.update((t) => [...historyTurns, ...t]);
+        this.loadingHistory.set(false);
+        this.scrollSoon();
+      },
+      error: () => {
+        this.loadingHistory.set(false);
+      },
+    });
+  }
 
   send(): void {
     const message = this.draft.trim();
@@ -50,6 +70,11 @@ export class ChatPage {
         this.scrollSoon();
       },
     });
+  }
+
+  downloadPdf(): void {
+    this.printedAt.setTime(Date.now());
+    window.print();
   }
 
   onKeydown(event: KeyboardEvent): void {

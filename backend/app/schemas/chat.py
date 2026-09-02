@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -22,3 +23,10 @@ class ChatResponse(BaseModel):
     recommended_action: str | None
     insufficient_information: bool
     sources: list[ChatSourceOut]
+
+
+class ChatMessageOut(BaseModel):
+    id: uuid.UUID
+    question: str
+    answer: ChatResponse
+    created_at: datetime

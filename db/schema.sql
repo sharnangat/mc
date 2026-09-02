@@ -324,6 +324,20 @@ CREATE TABLE IF NOT EXISTS metag.final_answers (
 );
 
 -- =========================================================================
+-- Ad hoc AI chat (separate from the paid Query/AIAnswer consultation flow)
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS metag.chat_messages (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES metag.users(id) ON DELETE CASCADE,
+  question     text NOT NULL,
+  answer_json  jsonb NOT NULL,   -- snapshot of the ChatResponse (conclusion/reasoning/action/sources)
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON metag.chat_messages(user_id, created_at);
+
+-- =========================================================================
 -- Notifications & audit trail
 -- =========================================================================
 

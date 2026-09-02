@@ -1,12 +1,40 @@
 <div class="card chat-card">
-  <h2>AI Engine Chat</h2>
-  <p class="hint">
-    Ask a metallurgical question. Answers are generated only from the approved knowledge base -
-    if nothing relevant is found, the AI will say so rather than guess.
-  </p>
+  <div class="print-header">
+    <h1>Metallurgical Consultation &mdash; AI Chat Transcript</h1>
+    <p class="meta">Exported {{ printedAt | date: 'medium' }}</p>
+  </div>
+
+  <div class="chat-header print-hide">
+    <div>
+      <h2 class="!mb-0">AI Engine Chat</h2>
+      <p class="hint !mb-0">
+        Ask a metallurgical question. Answers are generated only from the approved knowledge base -
+        if nothing relevant is found, the AI will say so rather than guess.
+      </p>
+    </div>
+    @if (turns().length > 0) {
+      <button type="button" class="btn secondary sm shrink-0" (click)="downloadPdf()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Download PDF
+      </button>
+    }
+  </div>
 
   <div class="messages">
-    @if (turns().length === 0) {
+    @if (loadingHistory()) {
+      <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Loading conversation...</span>
+      </div>
+    } @else if (turns().length === 0) {
       <p class="empty">Ask something to get started, e.g. "What are beach marks on a fatigue fracture surface?"</p>
     }
 
@@ -26,7 +54,7 @@
             <p class="pre-wrap">{{ turn.text }}</p>
 
             @if (turn.response && !turn.response.insufficient_information && turn.response.sources.length > 0) {
-              <details class="sources">
+              <details class="sources print-hide">
                 <summary>{{ turn.response.sources.length }} source(s)</summary>
                 <ul>
                   @for (s of turn.response.sources; track $index) {
@@ -37,6 +65,18 @@
                   }
                 </ul>
               </details>
+
+              <div class="sources print-only">
+                <p class="sources-title">{{ turn.response.sources.length }} source(s)</p>
+                <ul>
+                  @for (s of turn.response.sources; track $index) {
+                    <li>
+                      <strong>Source {{ $index + 1 }}</strong>
+                      <div class="cited">{{ s.cited_text }}</div>
+                    </li>
+                  }
+                </ul>
+              </div>
             }
           </div>
         </div>
@@ -53,7 +93,7 @@
     <div #scrollAnchor></div>
   </div>
 
-  <div class="composer">
+  <div class="composer print-hide">
     <textarea
       rows="2"
       [(ngModel)]="draft"
