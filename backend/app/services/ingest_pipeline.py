@@ -102,11 +102,14 @@ def run_document_ingest(
                 session.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document_id))
                 session.commit()
 
+                document = session.get(KnowledgeDocument, document_id)
+                title = document.title if document is not None else None
+
                 total_chunks = 0
                 chunk_index = 0
 
                 if content_text is not None and content_text.strip():
-                    records = build_chunk_records(content_text)
+                    records = build_chunk_records(content_text, title=title)
                     if not records:
                         raise ValueError("No content to index after chunking.")
                     _save_chunk_batch(session, document_id, records)
@@ -119,6 +122,7 @@ def run_document_ingest(
                             page_batch,
                             start_index=chunk_index,
                             embed_batch_size=EMBED_BATCH_SIZE,
+                            title=title,
                         )
                         if records:
                             _save_chunk_batch(session, document_id, records)

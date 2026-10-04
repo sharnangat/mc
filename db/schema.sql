@@ -153,6 +153,11 @@ CREATE TABLE IF NOT EXISTS metag.document_chunks (
 CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON metag.document_chunks
   USING hnsw (embedding vector_cosine_ops);
 
+-- Keyword half of hybrid search (alloy grades, standard numbers, exact terms
+-- that the embedding model under-ranks). Expression must match the query.
+CREATE INDEX IF NOT EXISTS idx_document_chunks_content_fts ON metag.document_chunks
+  USING gin (to_tsvector('english', content_text));
+
 -- =========================================================================
 -- System configuration & prompt versioning
 -- =========================================================================

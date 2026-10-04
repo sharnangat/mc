@@ -33,15 +33,24 @@ def _chunk_items_from_pages(pages: list[tuple[int, str]]) -> list[tuple[int | No
     return chunk_items
 
 
+def _text_to_embed(title: str | None, text: str) -> str:
+    """Prefix the book title so a question that names the handbook can match its chunks."""
+    cleaned = (title or "").strip()
+    if not cleaned:
+        return text
+    return f"{cleaned}\n{text}"
+
+
 def _records_from_chunk_items(
     chunk_items: list[tuple[int | None, str]],
     start_index: int,
     embed_batch_size: int,
+    title: str | None = None,
 ) -> list[dict]:
     records: list[dict] = []
     for offset in range(0, len(chunk_items), embed_batch_size):
         batch = chunk_items[offset : offset + embed_batch_size]
-        texts = [text for _, text in batch]
+        texts = [_text_to_embed(title, text) for _, text in batch]
         embeddings = embed_texts(texts, batch_size=embed_batch_size)
         for item_index, ((page_number, text), embedding) in enumerate(zip(batch, embeddings)):
             records.append(
@@ -56,23 +65,24 @@ def _records_from_chunk_items(
     return records
 
 
-def build_chunk_records(content_text: str) -> list[dict]:
+def build_chunk_records(content_text: str, title: str | None = None) -> list[dict]:
     chunk_items = [(None, chunk) for chunk in chunk_text(content_text)]
-    return _records_from_chunk_items(chunk_items, start_index=0, embed_batch_size=32)
+    return _records_from_chunk_items(chunk_items, start_index=0, embed_batch_size=32, title=title)
 
 
-def build_chunk_records_from_pages(pages: list[tuple[int, str]]) -> list[dict]:
+def build_chunk_records_from_pages(pages: list[tuple[int, str]], title: str | None = None) -> list[dict]:
     """Chunks page-extracted text, keeping each chunk within a single page so citations stay accurate."""
     chunk_items = _chunk_items_from_pages(pages)
-    return _records_from_chunk_items(chunk_items, start_index=0, embed_batch_size=32)
+    return _records_from_chunk_items(chunk_items, start_index=0, embed_batch_size=32, title=title)
 
 
 def build_chunk_records_from_pages_batch(
     pages: list[tuple[int, str]],
     start_index: int,
     embed_batch_size: int = 32,
+    title: str | None = None,
 ) -> tuple[list[dict], int]:
     """Build chunk records for a page batch; returns (records, next_chunk_index)."""
     chunk_items = _chunk_items_from_pages(pages)
-    records = _records_from_chunk_items(chunk_items, start_index, embed_batch_size)
+    records = _records_from_chunk_items(chunk_items, start_index, embed_batch_size, title=title)
     return records, start_index + len(records)
