@@ -17,6 +17,11 @@ interface ChatPair {
   answer?: ChatTurn;
 }
 
+/** Older replies started with the book title. Chat shows the answer only. */
+function genericAnswer(text: string): string {
+  return text.replace(/^Based on [\s\S]+,\s*the following applies:\s*/i, '').trim();
+}
+
 @Component({
   selector: 'app-chat-page',
   imports: [FormsModule, DatePipe],
@@ -58,7 +63,7 @@ export class ChatPage implements OnInit, OnDestroy {
       next: (messages) => {
         const historyTurns = messages.flatMap((m): ChatTurn[] => [
           { role: 'user', text: m.question },
-          { role: 'ai', text: m.answer.technical_conclusion, response: m.answer },
+          { role: 'ai', text: genericAnswer(m.answer.technical_conclusion), response: m.answer },
         ]);
         this.turns.update((t) => [...historyTurns, ...t]);
         this.loadingHistory.set(false);
@@ -81,7 +86,10 @@ export class ChatPage implements OnInit, OnDestroy {
 
     this.chat.send(message).subscribe({
       next: (response) => {
-        this.turns.update((t) => [...t, { role: 'ai', text: response.technical_conclusion, response }]);
+        this.turns.update((t) => [
+          ...t,
+          { role: 'ai', text: genericAnswer(response.technical_conclusion), response },
+        ]);
         this.sending.set(false);
         this.scrollSoon();
       },

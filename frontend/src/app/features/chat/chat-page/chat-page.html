@@ -72,32 +72,6 @@
                 <p class="insufficient">The knowledge base doesn't have enough information for this one.</p>
               }
               <p class="pre-wrap">{{ answer.text }}</p>
-
-              @if (answer.response && !answer.response.insufficient_information && answer.response.sources.length > 0) {
-                <details class="sources print-hide">
-                  <summary>{{ answer.response.sources.length }} source(s)</summary>
-                  <ul>
-                    @for (s of answer.response.sources; track $index) {
-                      <li>
-                        <strong>Source {{ $index + 1 }}</strong>
-                        <div class="cited">{{ s.cited_text }}</div>
-                      </li>
-                    }
-                  </ul>
-                </details>
-
-                <div class="sources print-only">
-                  <p class="sources-title">{{ answer.response.sources.length }} source(s)</p>
-                  <ul>
-                    @for (s of answer.response.sources; track $index) {
-                      <li>
-                        <strong>Source {{ $index + 1 }}</strong>
-                        <div class="cited">{{ s.cited_text }}</div>
-                      </li>
-                    }
-                  </ul>
-                </div>
-              }
             </div>
           </div>
         }

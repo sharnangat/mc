@@ -259,6 +259,7 @@ async def retrieve_chunks(db: AsyncSession, question_text: str, top_k: int = TOP
 def draft_from_matches(
     matches: list[tuple[DocumentChunk, KnowledgeDocument, float]],
     question_text: str = "",
+    include_citations: bool = True,
 ) -> dict:
     """Composes a draft strictly from retrieved text - never invents content.
 
@@ -276,14 +277,22 @@ def draft_from_matches(
             "insufficient_information": True,
         }
 
+    top_chunk, top_document, _ = matches[0]
+    excerpt = focus_excerpt(top_chunk.content_text, question_text, limit=700)
+    if not include_citations:
+        return {
+            "technical_conclusion": excerpt,
+            "technical_reasoning": None,
+            "recommended_action": None,
+            "insufficient_information": False,
+        }
+
     reasoning_lines = []
     for idx, (chunk, document, _) in enumerate(matches, start=1):
         page = f", p. {chunk.page_number}" if chunk.page_number else ""
         reasoning_lines.append(
             f"{idx}. {document.title}{page}: {focus_excerpt(chunk.content_text, question_text, limit=400)}"
         )
-    top_chunk, top_document, _ = matches[0]
-    excerpt = focus_excerpt(top_chunk.content_text, question_text, limit=700)
     return {
         "technical_conclusion": (
             f"Based on {top_document.title}, the following applies: {excerpt}"
