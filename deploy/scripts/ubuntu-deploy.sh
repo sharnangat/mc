@@ -17,17 +17,16 @@
 #   DB_USER          application role (default: mc). Ignored when backend/.env exists.
 #   DB_PASSWORD      role password. Generated and stored in backend/.env when omitted.
 #   JWT_SECRET       generated when backend/.env is created.
-#   ADMIN_EMAIL      when set, creates or resets this admin after the API is up
-#   ADMIN_PASSWORD   admin password; a random one is printed when omitted
-#   ADMIN_FULL_NAME  admin display name (default: Administrator)
+#   ADMIN_EMAIL      admin login (default: vidyanand@mc.local)
+#   ADMIN_PASSWORD   admin password (default: vidyanand123)
+#   ADMIN_FULL_NAME  admin display name (default: Vidyanand)
 #
 # An existing backend/.env is kept. Its DATABASE_URL must use database onlinedb.
 # A non-local DATABASE_URL skips the local PostgreSQL install and applies
 # db/deploy.sql to that server (the URL user must be allowed to create the
 # database and the vector extension).
 #
-# Does not load demo accounts. Create an admin with ADMIN_EMAIL=... or:
-#   cd backend && .venv/bin/python scripts/create_admin.py you@example.com
+# After the API is healthy, the script creates or resets the admin account.
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -334,14 +333,11 @@ if [ "$HEALTHY" -ne 1 ]; then
     exit 1
 fi
 
-if [ -n "${ADMIN_EMAIL:-}" ]; then
-    echo "==> Creating admin account $ADMIN_EMAIL"
-    if [ -n "${ADMIN_PASSWORD:-}" ]; then
-        (cd "$BACKEND_DIR" && "$VENV_PY" scripts/create_admin.py "$ADMIN_EMAIL" "$ADMIN_PASSWORD" "${ADMIN_FULL_NAME:-Administrator}")
-    else
-        (cd "$BACKEND_DIR" && "$VENV_PY" scripts/create_admin.py "$ADMIN_EMAIL")
-    fi
-fi
+ADMIN_EMAIL="${ADMIN_EMAIL:-vidyanand@mc.local}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-vidyanand123}"
+ADMIN_FULL_NAME="${ADMIN_FULL_NAME:-Vidyanand}"
+echo "==> Creating admin account $ADMIN_EMAIL"
+(cd "$BACKEND_DIR" && "$VENV_PY" scripts/create_admin.py "$ADMIN_EMAIL" "$ADMIN_PASSWORD" "$ADMIN_FULL_NAME")
 
 echo "==> Installing Node.js"
 if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)'; then
@@ -414,6 +410,4 @@ echo "  API:      http://${SERVER_IP}/mc/api/docs"
 echo "  Database: ${DB_NAME}, schema ${DB_SCHEMA}"
 echo "  Backend:  systemctl status mc-backend"
 echo "  Logs:     journalctl -u mc-backend -f"
-if [ -z "${ADMIN_EMAIL:-}" ]; then
-    echo "  Admin:    cd backend && .venv/bin/python scripts/create_admin.py you@example.com"
-fi
+echo "  Admin:    ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}"
