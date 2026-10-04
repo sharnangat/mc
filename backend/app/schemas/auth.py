@@ -25,7 +25,9 @@ class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    email: EmailStr
+    # str, not EmailStr: addresses on reserved domains (vidyanand@mc.local) are
+    # stored and used to log in, but EmailStr rejects them and /auth/me then fails.
+    email: str
     full_name: str
     phone: str | None
     company_name: str | None
