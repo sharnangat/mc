@@ -1,8 +1,8 @@
 <div class="card">
-  <h2>Upload Knowledge Document</h2>
+  <h2>Upload book</h2>
   <p class="subtitle">
-    Newly uploaded documents are disabled for AI use by default. Enable a document only once its licence/rights
-    are confirmed and it has been ingested.
+    Choose one or more PDF books. If Title is left blank, each file name is used. Newly uploaded books stay
+    disabled for AI use until the licence is confirmed and the book is ingested.
   </p>
 
   <div class="field">
@@ -41,8 +41,8 @@
     </select>
   </div>
   <div class="field">
-    <label for="file">File</label>
-    <input id="file" name="file" type="file" (change)="onFileSelected($event)" />
+    <label for="file">Book files (PDF)</label>
+    <input id="file" name="file" type="file" accept=".pdf,application/pdf" multiple (change)="onFileSelected($event)" />
   </div>
 
   @if (errorMessage()) {
@@ -50,7 +50,7 @@
   }
 
   <div class="btn-row">
-    <button type="button" class="btn" [disabled]="uploading() || !title || !file" (click)="upload()">
+    <button type="button" class="btn" [disabled]="uploading() || selectedFiles().length === 0" (click)="upload()">
       {{ uploading() ? 'Uploading...' : 'Upload' }}
     </button>
   </div>

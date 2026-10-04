@@ -38,7 +38,8 @@ export class Documents implements OnInit {
   standardName = '';
   licenceStatus = 'internal';
   accessPermission = 'restricted';
-  file: File | null = null;
+  readonly selectedFiles = signal<File[]>([]);
+  private fileInput: HTMLInputElement | null = null;
   ingestText = '';
 
   constructor(private readonly admin: AdminService) {}
@@ -57,41 +58,58 @@ export class Documents implements OnInit {
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.file = input.files?.[0] ?? null;
+    this.fileInput = input;
+    const files = input.files ? Array.from(input.files) : [];
+    this.selectedFiles.set(files);
+    if (!this.title.trim() && files.length === 1) {
+      this.title = files[0].name.replace(/\.[^.]+$/, '');
+    }
   }
 
   upload(): void {
-    if (!this.title.trim() || !this.file) return;
+    const files = this.selectedFiles();
+    if (files.length === 0 || this.uploading()) return;
     this.uploading.set(true);
     this.errorMessage.set(null);
+    this.uploadAt(files, 0);
+  }
 
+  private uploadAt(files: File[], index: number): void {
+    if (index >= files.length) {
+      this.uploading.set(false);
+      this.title = '';
+      this.standardName = '';
+      this.selectedFiles.set([]);
+      if (this.fileInput) this.fileInput.value = '';
+      this.reload();
+      return;
+    }
+
+    const file = files[index];
+    const title = files.length === 1 && this.title.trim() ? this.title.trim() : file.name.replace(/\.[^.]+$/, '');
     this.admin
       .uploadDocument({
-        title: this.title.trim(),
+        title,
         document_type: this.documentType,
         standard_name: this.standardName || undefined,
         licence_status: this.licenceStatus,
         access_permission: this.accessPermission,
-        file: this.file,
+        file,
       })
       .subscribe({
-        next: () => {
-          this.uploading.set(false);
-          this.title = '';
-          this.standardName = '';
-          this.file = null;
-          this.reload();
-        },
+        next: () => this.uploadAt(files, index + 1),
         error: (err) => {
           this.uploading.set(false);
+          this.reload();
           const detail = err?.error?.detail;
           const status = err?.status;
+          const name = file.name;
           if (status === 413) {
-            this.errorMessage.set('Upload failed: file is too large (max 300 MB).');
+            this.errorMessage.set(`Upload failed for ${name}: file is too large (max 1 GB).`);
           } else if (typeof detail === 'string') {
-            this.errorMessage.set(detail);
+            this.errorMessage.set(`${name}: ${detail}`);
           } else {
-            this.errorMessage.set('Upload failed.');
+            this.errorMessage.set(`Upload failed for ${name}.`);
           }
         },
       });

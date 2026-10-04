@@ -30,8 +30,10 @@ async def save_upload(file: UploadFile, subdir: str) -> tuple[str, str]:
     stored_name = f"{uuid.uuid4()}{suffix}"
     stored_path = target_dir / stored_name
 
-    contents = await file.read()
-    stored_path.write_bytes(contents)
+    # Stream in chunks so a large handbook is not held entirely in memory.
+    with stored_path.open("wb") as out:
+        while chunk := await file.read(1024 * 1024):
+            out.write(chunk)
 
     # Stored relative to backend root so deploy paths stay portable.
     try:
