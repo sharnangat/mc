@@ -183,6 +183,25 @@ PY
     fi
 }
 
+# postgres cannot read a checkout under /root (mode 700). Copy the SQL
+# somewhere it can read. \ir in deploy.sql loads schema.sql and seed.sql
+# from the same directory.
+apply_deploy_sql_as_postgres() {
+    local sql_dir status
+    sql_dir="$(mktemp -d /tmp/mc-deploy-sql.XXXXXX)"
+    cp "$REPO_ROOT/db/deploy.sql" "$REPO_ROOT/db/schema.sql" "$REPO_ROOT/db/seed.sql" "$sql_dir/"
+    chmod 755 "$sql_dir"
+    chmod 644 "$sql_dir"/*.sql
+    set +e
+    sudo -u postgres psql -p "$DB_PORT" -d postgres -v ON_ERROR_STOP=1 -f "$sql_dir/deploy.sql"
+    status=$?
+    set -e
+    rm -rf "$sql_dir"
+    if [ "$status" -ne 0 ]; then
+        exit "$status"
+    fi
+}
+
 apply_schema_local() {
     echo "==> Creating database role '$DB_USER'"
     sudo -u postgres psql -p "$DB_PORT" -d postgres -v ON_ERROR_STOP=1 \
@@ -193,7 +212,7 @@ SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'dbuser', :'dbpass')\gexe
 SQL
 
     echo "==> Creating database, schema, and tables (db/deploy.sql)"
-    sudo -u postgres psql -p "$DB_PORT" -d postgres -v ON_ERROR_STOP=1 -f "$DEPLOY_SQL"
+    apply_deploy_sql_as_postgres
 
     echo "==> Granting '$DB_USER' access to schema $DB_SCHEMA"
     sudo -u postgres psql -p "$DB_PORT" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
@@ -250,7 +269,7 @@ else
         fi
         if [ "$DB_USER" = "postgres" ]; then
             echo "==> Creating database, schema, and tables (db/deploy.sql)"
-            sudo -u postgres psql -p "$DB_PORT" -d postgres -v ON_ERROR_STOP=1 -f "$DEPLOY_SQL"
+            apply_deploy_sql_as_postgres
         else
             apply_schema_local
         fi
