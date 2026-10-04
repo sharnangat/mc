@@ -62,7 +62,16 @@ _SEARCH_EXPANSIONS = {
 }
 
 MODEL_NAME = "rag-template-stub"
-MODEL_VERSION = "0.4.0"
+MODEL_VERSION = "0.5.0"
+# Questions that ask for one of these want a measured value, not only a definition.
+_VALUE_CUES = frozenset(
+    {
+        "temperature", "temp", "hardness", "hrc", "hrb", "hv", "hb",
+        "strength", "uts", "ys", "elongation", "toughness", "impact",
+        "mpa", "ksi", "stress", "yield", "tensile", "fatigue", "density",
+        "conductivity", "range", "cycle", "percent",
+    }
+)
 
 INSUFFICIENT_INFO_MESSAGE = (
     "The available database does not contain sufficient information to answer this question. "
@@ -71,13 +80,14 @@ INSUFFICIENT_INFO_MESSAGE = (
 
 
 class _Hit:
-    __slots__ = ("chunk", "document", "distance", "rerank")
+    __slots__ = ("chunk", "document", "distance", "rerank", "span")
 
     def __init__(self, chunk: DocumentChunk, document: KnowledgeDocument, distance: float | None):
         self.chunk = chunk
         self.document = document
         self.distance = distance
         self.rerank: float | None = None
+        self.span: str | None = None
 
 
 def _content_tokens(question: str) -> list[str]:
@@ -186,20 +196,72 @@ def _trim(text: str, limit: int) -> str:
     return clipped or text[:limit]
 
 
+def _asks_for_value(question: str) -> bool:
+    tokens = set(_content_tokens(question))
+    if tokens & _VALUE_CUES:
+        return True
+    return bool(re.search(r"\b(mpa|ksi|°c|celsius|fahrenheit|%\s*c)\b", question.lower()))
+
+
+def _has_measured_value(text: str, question: str) -> bool:
+    """A number other than the grade itself, such as 540 C or 28 HRC."""
+    designations = set(_designations(question))
+    for raw in _TOKEN_RE.findall(text.lower()):
+        if any(char.isdigit() for char in raw) and raw not in designations:
+            return True
+    return False
+
+
+def _slice_around(text: str, question: str, limit: int) -> str:
+    """Keep the part of a long line that contains the grade or property.
+
+    PDF text often has no sentence breaks, so cutting at the start drops the value.
+    """
+    lowered = text.lower()
+    designations = _designations(question)
+    search_terms = designations + [term for term in _match_terms(question) if term not in designations]
+    position: int | None = None
+    for term in search_terms:
+        if any(char.isdigit() for char in term) or "-" in term:
+            pattern = rf"(?:^|[^a-z0-9]){re.escape(term)}(?:[^a-z0-9]|$)"
+        else:
+            pattern = rf"(?:^|[^a-z]){re.escape(term)}"
+        match = re.search(pattern, lowered)
+        if match:
+            position = match.start()
+            break
+    if position is None:
+        return _trim(text, limit)
+    start = max(0, position - 40)
+    if start:
+        gap = text.find(" ", start)
+        if 0 <= gap < position:
+            start = gap + 1
+    return _trim(text[start:], limit)
+
+
+def _fit(text: str, question: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return _slice_around(text, question, limit)
+
+
 def focus_excerpt(text: str, question: str, limit: int = 700) -> str:
-    """Quote the sentence that best matches the question, plus the one after it.
+    """Quote the sentence that best matches the question.
 
     A 200-word chunk often starts on the previous topic, and a grade number can
     appear in almost every sentence. Weight terms that show up in fewer sentences
-    so the quoted span is the one that actually answers the question. The words
-    themselves are copied from the book.
+    so the quoted span is the one that actually answers the question. When the
+    question asks for a hardness or temperature and that sentence has no number,
+    the following sentence is included if it does. The words themselves are copied
+    from the book.
     """
     terms = _match_terms(question)
     sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+|\n+", text) if part.strip()]
     if not sentences:
         return ""
     if not terms or len(sentences) == 1:
-        return _trim(sentences[0], limit)
+        return _fit(sentences[0], question, limit)
 
     weights: list[tuple[str, float]] = []
     for term in terms:
@@ -209,7 +271,7 @@ def focus_excerpt(text: str, question: str, limit: int = 700) -> str:
         base = 3 if any(char.isdigit() for char in term) or "-" in term else 1
         weights.append((term, base * (len(sentences) / hits)))
     if not weights:
-        return _trim(" ".join(sentences[:2]), limit)
+        return _fit(" ".join(sentences[:2]), question, limit)
 
     def score_at(index: int) -> float:
         lowered = sentences[index].lower()
@@ -217,16 +279,23 @@ def focus_excerpt(text: str, question: str, limit: int = 700) -> str:
 
     scores = [score_at(index) for index in range(len(sentences))]
     if max(scores) <= 0:
-        return _trim(" ".join(sentences[:2]), limit)
+        return _fit(" ".join(sentences[:2]), question, limit)
 
     best = max(
         range(len(scores)),
         key=lambda index: (scores[index], scores[index + 1] if index + 1 < len(scores) else 0),
     )
     chosen = [sentences[best]]
-    if best + 1 < len(sentences) and scores[best + 1] > 0:
-        chosen.append(sentences[best + 1])
-    return _trim(" ".join(chosen), limit)
+    if best + 1 < len(sentences):
+        follow = sentences[best + 1]
+        value_follows = (
+            _asks_for_value(question)
+            and not _has_measured_value(sentences[best], question)
+            and _has_measured_value(follow, question)
+        )
+        if scores[best + 1] > 0 or value_follows:
+            chosen.append(follow)
+    return _fit(" ".join(chosen), question, limit)
 
 
 def _logit_to_distance(logit: float) -> float:
@@ -467,10 +536,12 @@ async def retrieve_chunks(db: AsyncSession, question_text: str, top_k: int = TOP
         if added == 8:
             break
     windows: list[str] = []
+    raw_windows: list[str] = []
     owners: list[_Hit] = []
     for hit in pool:
         for window in _passage_windows(hit.chunk.content_text):
             windows.append(f"{hit.document.title}\n{window}")
+            raw_windows.append(window)
             owners.append(hit)
     try:
         scores = await asyncio.to_thread(rerank_passages, _rerank_question(question_text), windows)
@@ -479,13 +550,13 @@ async def retrieve_chunks(db: AsyncSession, question_text: str, top_k: int = TOP
         scores = None
 
     if scores is not None:
-        best: dict[uuid.UUID, float] = {}
-        for hit, score in zip(owners, scores):
-            previous = best.get(hit.chunk.id)
-            if previous is None or score > previous:
-                best[hit.chunk.id] = score
+        for hit, score, raw in zip(owners, scores, raw_windows):
+            if hit.rerank is None or score > hit.rerank:
+                hit.rerank = score
+                hit.span = raw
         for hit in pool:
-            hit.rerank = best.get(hit.chunk.id, -999.0)
+            if hit.rerank is None:
+                hit.rerank = -999.0
             hit.distance = _logit_to_distance(hit.rerank)
         named = [
             hit
@@ -512,9 +583,53 @@ async def retrieve_chunks(db: AsyncSession, question_text: str, top_k: int = TOP
         f"{selected[0].rerank:.2f}" if selected and selected[0].rerank is not None else "n/a",
     )
     return [
-        (hit.chunk, hit.document, hit.distance if hit.distance is not None else 1.0)
+        _with_span(hit)
         for hit in selected
     ]
+
+
+def _with_span(hit: _Hit) -> tuple[DocumentChunk, KnowledgeDocument, float]:
+    """Remember the half of the chunk the reranker preferred, without writing it to the database."""
+    if hit.span:
+        object.__setattr__(hit.chunk, "answer_span", hit.span)
+    return (hit.chunk, hit.document, hit.distance if hit.distance is not None else 1.0)
+
+
+def _source_text(chunk: DocumentChunk) -> str:
+    return getattr(chunk, "answer_span", None) or chunk.content_text
+
+
+def _chat_conclusion(
+    matches: list[tuple[DocumentChunk, KnowledgeDocument, float]],
+    question_text: str,
+) -> str | None:
+    """Pick the retrieved sentence that covers the grade and the property.
+
+    The highest-ranked chunk is sometimes the introduction. Another retrieved
+    chunk may be the one that states the value. Skip a passage that does not
+    mention the asked grade.
+    """
+    designations = _designations(question_text)
+    topics = [term for term in _match_terms(question_text) if term not in designations]
+    wants_value = _asks_for_value(question_text)
+    best: tuple[int, int] | None = None
+    chosen: str | None = None
+    for chunk, _, _ in matches:
+        excerpt = focus_excerpt(_source_text(chunk), question_text, limit=700)
+        if not excerpt:
+            continue
+        if designations and _coverage(excerpt, designations) <= 0:
+            continue
+        lowered = excerpt.lower()
+        topic_hits = sum(_contains_term(lowered, term) for term in topics)
+        if topics and topic_hits == 0:
+            continue
+        measured = 1 if wants_value and _has_measured_value(excerpt, question_text) else 0
+        rank = (measured, topic_hits) if wants_value else (topic_hits, 0)
+        if best is None or rank > best:
+            best = rank
+            chosen = excerpt
+    return chosen
 
 
 def draft_from_matches(
@@ -539,10 +654,18 @@ def draft_from_matches(
         }
 
     top_chunk, top_document, _ = matches[0]
-    excerpt = focus_excerpt(top_chunk.content_text, question_text, limit=700)
+    excerpt = focus_excerpt(_source_text(top_chunk), question_text, limit=700)
     if not include_citations:
+        chat_excerpt = _chat_conclusion(matches, question_text)
+        if not chat_excerpt:
+            return {
+                "technical_conclusion": INSUFFICIENT_INFO_MESSAGE,
+                "technical_reasoning": None,
+                "recommended_action": None,
+                "insufficient_information": True,
+            }
         return {
-            "technical_conclusion": excerpt,
+            "technical_conclusion": chat_excerpt,
             "technical_reasoning": None,
             "recommended_action": None,
             "insufficient_information": False,
