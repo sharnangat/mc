@@ -36,7 +36,7 @@ _STOPWORDS = frozenset(
 _TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
 MODEL_NAME = "rag-template-stub"
-MODEL_VERSION = "0.2.0"
+MODEL_VERSION = "0.3.0"
 
 INSUFFICIENT_INFO_MESSAGE = (
     "The available database does not contain sufficient information to answer this question. "
@@ -54,8 +54,7 @@ class _Hit:
         self.rerank: float | None = None
 
 
-def _keyword_tsquery(question: str) -> str | None:
-    """OR of the content words. AND-ing a full question drops passages that omit 'what' or 'the'."""
+def _content_tokens(question: str) -> list[str]:
     tokens: list[str] = []
     seen: set[str] = set()
     for raw in _TOKEN_RE.findall(question.lower()):
@@ -67,9 +66,46 @@ def _keyword_tsquery(question: str) -> str | None:
         tokens.append(raw)
         if len(tokens) == 8:
             break
+    return tokens
+
+
+def _keyword_tsquery(question: str) -> str | None:
+    """Require grade/standard numbers, then any of the topic words.
+
+    A plain OR matches every page that says "steel" or "temperature". A question
+    about 4140 tempering must mention 4140 and at least one of those topics.
+    """
+    tokens = _content_tokens(question)
     if not tokens:
         return None
+    anchors = [token for token in tokens if any(char.isdigit() for char in token)]
+    others = [token for token in tokens if token not in anchors]
+    if anchors and others:
+        return f"({' | '.join(anchors)}) & ({' | '.join(others)})"
+    if 2 <= len(tokens) <= 4:
+        return " & ".join(tokens)
     return " | ".join(tokens)
+
+
+def focus_excerpt(text: str, question: str, limit: int = 700) -> str:
+    """Keep the sentences that contain the question's terms, in reading order.
+
+    The start of a 200-word chunk is often the previous topic. The cited answer
+    should be the sentences that actually mention the grade or property asked for.
+    """
+    tokens = _content_tokens(question)
+    sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+|\n+", text) if part.strip()]
+    if not tokens or not sentences:
+        return text[:limit]
+
+    def mentions(sentence: str) -> int:
+        lowered = sentence.lower()
+        return sum(2 if any(char.isdigit() for char in token) else 1 for token in tokens if token in lowered)
+
+    chosen = [sentence for sentence in sentences if mentions(sentence) > 0]
+    if not chosen:
+        chosen = sentences[:2]
+    return " ".join(chosen)[:limit]
 
 
 def _logit_to_distance(logit: float) -> float:
@@ -78,17 +114,30 @@ def _logit_to_distance(logit: float) -> float:
     return (1 - probability) * 2
 
 
-def _fuse(vector_rows, keyword_rows) -> list[_Hit]:
+def _absorb(hits: dict[uuid.UUID, _Hit], scores: dict[uuid.UUID, float], rows, *, distance: bool) -> None:
+    for rank, (chunk, document, third) in enumerate(rows, start=1):
+        if chunk.id not in hits:
+            hits[chunk.id] = _Hit(chunk, document, float(third) if distance else None)
+        elif distance and (hits[chunk.id].distance is None or float(third) < hits[chunk.id].distance):
+            hits[chunk.id].distance = float(third)
+        scores[chunk.id] = scores.get(chunk.id, 0.0) + 1 / (RRF_K + rank)
+
+
+def _fuse(*ranked_lists: tuple[list, bool]) -> list[_Hit]:
     scores: dict[uuid.UUID, float] = {}
     hits: dict[uuid.UUID, _Hit] = {}
-    for rank, (chunk, document, distance) in enumerate(vector_rows, start=1):
-        hits[chunk.id] = _Hit(chunk, document, float(distance))
-        scores[chunk.id] = 1 / (RRF_K + rank)
-    for rank, (chunk, document, _rank) in enumerate(keyword_rows, start=1):
-        if chunk.id not in hits:
-            hits[chunk.id] = _Hit(chunk, document, None)
-        scores[chunk.id] = scores.get(chunk.id, 0.0) + 1 / (RRF_K + rank)
+    for rows, use_distance in ranked_lists:
+        _absorb(hits, scores, rows, distance=use_distance)
     return sorted(hits.values(), key=lambda hit: scores[hit.chunk.id], reverse=True)
+
+
+def _anchor_bonus(text: str, anchors: list[str]) -> float:
+    """Prefer a passage that actually contains the grade or standard number."""
+    if not anchors:
+        return 0.0
+    lowered = text.lower()
+    covered = sum(anchor in lowered for anchor in anchors) / len(anchors)
+    return 3.0 * covered
 
 
 def _diversify(hits: list[_Hit], top_k: int) -> list[_Hit]:
@@ -156,9 +205,16 @@ async def retrieve_chunks(db: AsyncSession, question_text: str, top_k: int = TOP
     leg found, and the cross-encoder decides which of those passages actually
     answer the question.
     """
+    tokens = _content_tokens(question_text)
+    anchors = [token for token in tokens if any(char.isdigit() for char in token)]
+    condensed = " ".join(tokens)
     vector_rows = await _vector_candidates(db, question_text)
+    # Handbook prose looks like "4140 tempering", not "what is the tempering temperature of".
+    condensed_rows = []
+    if condensed and condensed != question_text.strip().lower():
+        condensed_rows = await _vector_candidates(db, condensed)
     keyword_rows = await _keyword_candidates(db, question_text)
-    fused = _fuse(vector_rows, keyword_rows)
+    fused = _fuse((vector_rows, True), (condensed_rows, True), (keyword_rows, False))
     if not fused:
         logger.info("Retrieval for %r: no candidates", question_text[:80])
         return []
@@ -173,11 +229,15 @@ async def retrieve_chunks(db: AsyncSession, question_text: str, top_k: int = TOP
 
     if scores is not None:
         for hit, score in zip(pool, scores):
-            hit.rerank = score
-            hit.distance = _logit_to_distance(score)
+            bonus = _anchor_bonus(f"{hit.document.title}\n{hit.chunk.content_text}", anchors)
+            hit.rerank = score + bonus
+            hit.distance = _logit_to_distance(hit.rerank)
         pool.sort(key=lambda hit: hit.rerank if hit.rerank is not None else -999.0, reverse=True)
         kept = [hit for hit in pool if hit.rerank is not None and hit.rerank >= RERANK_MIN_LOGIT]
     else:
+        for hit in pool:
+            hit.rerank = _anchor_bonus(f"{hit.document.title}\n{hit.chunk.content_text}", anchors)
+        pool.sort(key=lambda hit: hit.rerank if hit.rerank is not None else 0.0, reverse=True)
         kept = pool
 
     selected = _diversify(kept, top_k)
@@ -196,7 +256,10 @@ async def retrieve_chunks(db: AsyncSession, question_text: str, top_k: int = TOP
     ]
 
 
-def draft_from_matches(matches: list[tuple[DocumentChunk, KnowledgeDocument, float]]) -> dict:
+def draft_from_matches(
+    matches: list[tuple[DocumentChunk, KnowledgeDocument, float]],
+    question_text: str = "",
+) -> dict:
     """Composes a draft strictly from retrieved text - never invents content.
 
     This is a template-based placeholder for a real LLM call. Any future LLM
@@ -216,12 +279,14 @@ def draft_from_matches(matches: list[tuple[DocumentChunk, KnowledgeDocument, flo
     reasoning_lines = []
     for idx, (chunk, document, _) in enumerate(matches, start=1):
         page = f", p. {chunk.page_number}" if chunk.page_number else ""
-        reasoning_lines.append(f"{idx}. {document.title}{page}: {chunk.content_text[:400]}")
+        reasoning_lines.append(
+            f"{idx}. {document.title}{page}: {focus_excerpt(chunk.content_text, question_text, limit=400)}"
+        )
     top_chunk, top_document, _ = matches[0]
+    excerpt = focus_excerpt(top_chunk.content_text, question_text, limit=700)
     return {
         "technical_conclusion": (
-            f"Based on {top_document.title}, the following applies: "
-            f"{top_chunk.content_text[:500]}"
+            f"Based on {top_document.title}, the following applies: {excerpt}"
         ),
         "technical_reasoning": "\n".join(reasoning_lines),
         "recommended_action": (
@@ -234,7 +299,7 @@ def draft_from_matches(matches: list[tuple[DocumentChunk, KnowledgeDocument, flo
 
 async def create_ai_answer(db: AsyncSession, query: Query) -> AIAnswer:
     matches = await retrieve_chunks(db, query.question_text)
-    draft = draft_from_matches(matches)
+    draft = draft_from_matches(matches, query.question_text)
     if draft["insufficient_information"]:
         logger.info("Query %s: insufficient information in knowledge base", query.id)
 
@@ -255,7 +320,7 @@ async def create_ai_answer(db: AsyncSession, query: Query) -> AIAnswer:
                 document_id=document.id,
                 document_chunk_id=chunk.id,
                 relevance_score=max(0.0, 1 - distance / 2),
-                cited_text=chunk.content_text[:1000],
+                cited_text=focus_excerpt(chunk.content_text, query.question_text, limit=1000),
                 page_number=chunk.page_number,
                 section=chunk.section,
                 clause_number=chunk.clause_number,

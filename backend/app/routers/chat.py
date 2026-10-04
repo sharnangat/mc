@@ -9,7 +9,7 @@ from app.models.chat import ChatMessage
 from app.models.identity import User
 from app.schemas.chat import ChatMessageOut, ChatRequest, ChatResponse, ChatSourceOut
 from app.services.deps import get_current_user
-from app.services.rag import draft_from_matches, retrieve_chunks
+from app.services.rag import draft_from_matches, focus_excerpt, retrieve_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ async def chat(
 
     logger.info("Chat message from %s: %r", user.email, message[:100])
     matches = await retrieve_chunks(db, message)
-    draft = draft_from_matches(matches)
+    draft = draft_from_matches(matches, message)
 
     sources = [
         ChatSourceOut(
@@ -73,7 +73,7 @@ async def chat(
             document_title=document.title,
             page_number=chunk.page_number,
             relevance_score=max(0.0, 1 - distance / 2),
-            cited_text=chunk.content_text[:500],
+            cited_text=focus_excerpt(chunk.content_text, message, limit=500),
         )
         for chunk, document, distance in matches
     ]
