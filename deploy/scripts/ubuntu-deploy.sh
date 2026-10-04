@@ -363,6 +363,15 @@ fi
 echo "==> Publishing the frontend to $FRONTEND_DIST"
 mkdir -p "$FRONTEND_DIST"
 rsync -a --delete "$BUILD_DIR/" "$FRONTEND_DIST/"
+# nginx (www-data) must be able to traverse these directories and read the files
+chmod a+rx /opt/mc /opt/mc/current "$FRONTEND_DIST"
+find "$FRONTEND_DIST" -type d -exec chmod a+rx {} +
+find "$FRONTEND_DIST" -type f -exec chmod a+r {} +
+# mc.conf uses root /opt/mc/current, so /mc/index.html is this path
+if [ -d /opt/mc/current/mc ] && [ ! -L /opt/mc/current/mc ]; then
+    rm -rf /opt/mc/current/mc
+fi
+ln -sfn frontend-dist /opt/mc/current/mc
 
 echo "==> Configuring nginx"
 if [ ! -f "$NGINX_MC_CONF" ]; then
@@ -381,8 +390,11 @@ nginx -t
 systemctl enable nginx >/dev/null
 systemctl reload nginx 2>/dev/null || systemctl restart nginx
 
-if ! curl -sf -o /dev/null http://127.0.0.1/mc/; then
-    echo "ERROR: nginx is not serving the frontend at /mc/." >&2
+HTTP_CODE="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/mc/ || true)"
+if [ "$HTTP_CODE" != "200" ]; then
+    echo "ERROR: nginx returned HTTP ${HTTP_CODE:-000} for http://127.0.0.1/mc/." >&2
+    echo "       Expected index at /opt/mc/current/mc/index.html" >&2
+    ls -l /opt/mc/current/mc/index.html >&2 || true
     exit 1
 fi
 
